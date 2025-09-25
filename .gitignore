@@ -1,0 +1,23 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+*.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Docker
+**/out/
+**/docker-compose.override.yml
+
+# Logs
+*.log
+
+# Config locales
+appsettings.Development.json
