@@ -1,0 +1,29 @@
+# StudentGest
+
+StudentGest is a student management system designed to help educational institutions efficiently manage student data, attendance, grades, and more.
+
+## Features
+
+- Student registration and profile management
+- Attendance tracking
+- Grade and performance monitoring
+- User authentication and roles
+
+## Installation
+
+1. Clone the repository:
+    ```
+    git clone https://github.com/yourusername/studentgest.git
+    ```
+2. Navigate to the project directory:
+    ```
+    cd studentgest
+    ```
+3. Install dependencies:
+    ```
+    [Add installation instructions here, e.g., npm install, pip install -r requirements.txt]
+    ```
+
+## Usage
+
+Start the application:
