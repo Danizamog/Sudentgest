@@ -8,10 +8,12 @@ services:
     build: ./Auth
     ports:
       - "5002:5000"
+    env_file: ./Auth/.env
   users:
     build: ./Users
     ports:
       - "5003:5000"
+    env_file: ./Users/.env
   attendance:
     build: ./Attendance
     ports:
