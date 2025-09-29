@@ -1,22 +1,16 @@
 <template>
-  <div class="signin-container">
-    <h2 class="title">Iniciar sesión</h2>
+  <section class="auth">
+    <div class="card">
+      <h1>Iniciar sesión</h1>
 
-    <form @submit.prevent="handleSignIn" class="signin-form">
-      <div class="input-group">
-        <label for="email">Correo</label>
-        <input id="email" v-model="email" type="email" placeholder="correo@ejemplo.com" required />
-      </div>
-
-      <div class="input-group">
-        <label for="password">Contraseña</label>
-        <input id="password" v-model="password" type="password" placeholder="••••••••" required />
-      </div>
-
-      <button type="submit" class="btn-primary" :disabled="loading">
-        <span v-if="loading">Ingresando...</span>
-        <span v-else>Entrar</span>
-      </button>
+      <form @submit.prevent="handleSignIn" class="form">
+        <input id="email" v-model="email" type="email" placeholder="Correo institucional" required />
+        <input id="password" v-model="password" type="password" placeholder="Contraseña" required />
+        <button type="submit" class="btn-primary" :disabled="loading">
+          <span v-if="loading">Ingresando...</span>
+          <span v-else>Entrar</span>
+        </button>
+      </form>
 
       <div class="divider"><span>o</span></div>
 
@@ -26,8 +20,13 @@
       </button>
 
       <p v-if="error" class="error">{{ error }}</p>
-    </form>
-  </div>
+
+      <p class="hint">
+        ¿No tienes cuenta?
+        <router-link to="/signup">Regístrate</router-link>
+      </p>
+    </div>
+  </section>
 </template>
 
 <script setup>
@@ -144,29 +143,120 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.signin-container {
-  max-width: 400px;
-  margin: 5rem auto;
-  padding: 2.5rem;
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-  background-color: #fff;
-  font-family: 'Inter', sans-serif;
-  text-align: center;
+.auth {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
 }
-.title { font-size: 1.75rem; font-weight: 700; margin-bottom: 2rem; color: #1f2937; }
-.signin-form .input-group { margin-bottom: 1.5rem; text-align: left; }
-.signin-form label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #374151; }
-.signin-form input { width: 100%; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid #d1d5db; background: #f9fafb; transition: border 0.2s ease; }
-.signin-form input:focus { border-color: #4f46e5; outline: none; background: #fff; }
-.btn-primary { width: 100%; padding: 0.85rem; border: none; border-radius: 0.75rem; background-color: #4f46e5; color: white; font-weight: 600; cursor: pointer; transition: background 0.3s ease; margin-top: 0.5rem; }
-.btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; }
-.btn-primary:hover:not(:disabled) { background-color: #3730a3; }
-.divider { display: flex; align-items: center; margin: 1.5rem 0; color: #6b7280; font-size: 0.9rem; }
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
-.divider span { margin: 0 0.75rem; }
-.btn-google { width: 100%; padding: 0.85rem; border: 1px solid #d1d5db; border-radius: 0.75rem; background-color: #fff; font-weight: 600; color: #374151; display: flex; align-items: center; justify-content: center; gap: 0.75rem; cursor: pointer; transition: background 0.2s ease, border 0.2s ease; }
-.btn-google:hover { background-color: #f9fafb; border-color: #9ca3af; }
-.btn-google img { width: 20px; height: 20px; }
-.error { margin-top: 1rem; color: #dc2626; font-weight: bold; font-size: 0.9rem; }
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .06);
+  animation: rise .4s ease;
+}
+.card h1 {
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #2a4dd0;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+input {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: .8rem;
+  font: inherit;
+  transition: border-color .15s, box-shadow .2s;
+}
+input:focus {
+  outline: none;
+  border-color: #2a4dd0;
+  box-shadow: 0 0 0 4px rgba(42, 77, 208, .12);
+}
+.btn-primary {
+  background: #2a4dd0;
+  color: #fff;
+  border: none;
+  padding: .7rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform .15s, box-shadow .2s;
+}
+.btn-primary:disabled {
+  background-color: #a5b4fc;
+  cursor: not-allowed;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(42, 77, 208, .2);
+}
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+.divider span {
+  margin: 0 0.75rem;
+}
+.btn-google {
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  background-color: #fff;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease;
+}
+.btn-google:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+.btn-google img {
+  width: 20px;
+  height: 20px;
+}
+.error {
+  margin-top: 1rem;
+  color: #dc2626;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+.hint {
+  margin-top: .75rem;
+  text-align: center;
+  color: #666;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 </style>
