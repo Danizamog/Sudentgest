@@ -1,10 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import SignIn from './views/SignIn.vue'
 import Home from './views/Home.vue'
+import SubirNotas from './views/SubirNotas.vue'
 
 const routes = [
   { path: '/signin', component: SignIn },
-  { path: '/', component: Home, meta: { requiresAuth: true } }
+  { path: '/', component: Home, meta: { requiresAuth: true } },
+  { path: '/subir-notas', component: SubirNotas, meta: { requiresAuth: true } }
 ]
 
 const router = createRouter({
