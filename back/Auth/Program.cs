@@ -1,3 +1,18 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens; 
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
+using Npgsql;
+using System.Text.RegularExpressions;
+using System.IO;
+using Microsoft.AspNetCore.Http;
+using Microsoft.OpenApi.Models;
+using System.Threading.Tasks;
+
+
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 🔹 Cargar .env
