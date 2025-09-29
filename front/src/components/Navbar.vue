@@ -1,22 +1,36 @@
 <template>
-  <nav v-if="showNavbar" class="navbar">
-    <div class="nav-container">
-      <div class="nav-logo">
-        <router-link to="/home">StudentGest</router-link>
+  <div v-if="showNavbar">
+    <!-- HEADER (full width) -->
+    <header class="site-header">
+      <div class="container">
+        <h1 class="site-title">StudentGest</h1>
       </div>
-      <ul class="nav-links">
-        <li><router-link to="/home">Inicio</router-link></li>
-        <li><router-link to="/foro">Foro</router-link></li>
-        <li><router-link to="/features">Características</router-link></li>
-        <li><router-link to="/pricing">Precios</router-link></li>
-        <li><router-link to="/info">Información</router-link></li>
-        <li><router-link to="/contact">Contacto</router-link></li>
-        <li><router-link to="/nosotros">Nosotros</router-link></li>
-        <li><router-link to="/base">Base de Datos</router-link></li>
-        <li><button @click="handleLogout" class="logout-btn">Cerrar sesión</button></li>
-      </ul>
-    </div>
-  </nav>
+    </header>
+
+    <!-- NAV (full width) -->
+    <nav class="site-nav">
+      <div class="container nav-flex">
+        <div class="nav-left">
+          <!-- espacio para logo o link futuro -->
+        </div>
+
+        <div class="nav-center">
+          <router-link to="/home" class="nav-link">Inicio</router-link>
+          <router-link to="/foro" class="nav-link">Foro</router-link>
+          <router-link to="/features" class="nav-link">Características</router-link>
+          <router-link to="/pricing" class="nav-link">Precios</router-link>
+          <router-link to="/info" class="nav-link">Información</router-link>
+          <router-link to="/contact" class="nav-link">Contacto</router-link>
+          <router-link to="/nosotros" class="nav-link">Nosotros</router-link>
+          <router-link to="/base" class="nav-link">Base de Datos</router-link>
+        </div>
+
+        <div class="nav-right">
+          <button @click="handleLogout" class="logout-btn">Cerrar sesión</button>
+        </div>
+      </div>
+    </nav>
+  </div>
 </template>
 
 <script setup>
@@ -88,101 +102,126 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.navbar {
-  background: linear-gradient(to right, #1e3c72, #2a5298);
-  padding: 0.5rem 1rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-.nav-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* contenedor central que mantiene el contenido alineado y con max-width */
+.container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 20px;
 }
 
-.nav-logo a {
-  color: white;
-  font-size: 1.5rem;
-  font-weight: bold;
-  text-decoration: none;
+/* HEADER */
+.site-header {
+  width: 100%;
+  background: #111318; /* gris muy oscuro */
+  color: #ffffff;
+  padding: 18px 0;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.15);
 }
-
-.nav-links {
-  list-style: none;
-  display: flex;
-  gap: 1rem;
+.site-title {
   margin: 0;
-  padding: 0;
-  align-items: center;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+  text-align: left;
 }
 
-.nav-links li {
+/* NAV */
+.site-nav {
+  width: 100%;
+  background: #f5f6f8; /* gris claro para navbar */
+  border-bottom: 1px solid #e6e7ea;
+}
+.nav-flex {
   display: flex;
   align-items: center;
+  gap: 16px;
+  height: 64px;
 }
 
+/* Tres columnas equilibradas: left-center-right */
+.nav-left, .nav-center, .nav-right {
+  flex: 1;
+}
+.nav-left { text-align: left; }
+.nav-center { text-align: center; }
+.nav-right { text-align: right; }
+
+/* enlaces centrales */
+.nav-link {
+  margin: 0 12px;
+  color: #374151; /* gris sobrio */
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 8px 10px;
+  display: inline-block;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.nav-link:hover {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+/* 🔹 ESTILOS PARA RUTA ACTIVA */
 .router-link-active,
 .router-link-exact-active {
-  font-weight: bold;
-  text-decoration: underline;
-  background-color: rgba(255, 255, 255, 0.3) !important;
+  color: #1e40af !important;
+  font-weight: 700;
+  background-color: rgba(30, 64, 175, 0.1);
+  border-radius: 6px;
 }
 
-.nav-links a {
-  color: white;
-  background-color: transparent;
-  border: none;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  border-radius: 5px;
-  text-decoration: none;
-  display: block;
-  white-space: nowrap;
-}
-
-.nav-links a:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
+/* botón de logout */
 .logout-btn {
-  color: white;
-  background-color: rgba(239, 68, 68, 0.8);
-  border: none;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
+  background: #dc2626; /* rojo para logout */
+  color: #ffffff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  display: inline-block;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  border-radius: 5px;
-  white-space: nowrap;
+  border: none;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2);
+  transition: background-color 0.2s ease;
 }
-
 .logout-btn:hover {
-  background-color: rgba(220, 38, 38, 0.9);
+  background: #b91c1c;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .nav-container {
+  .nav-flex {
     flex-direction: column;
-    gap: 1rem;
+    height: auto;
+    padding: 10px 0;
+    gap: 8px;
   }
-  
-  .nav-links {
+  .site-title {
+    text-align: center;
+    font-size: 20px;
+  }
+  .nav-left { order: 1; width: 100%; text-align: center; }
+  .nav-center { 
+    order: 2; 
+    width: 100%; 
+    text-align: center; 
+    display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 8px;
   }
-  
-  .nav-links a,
+  .nav-right { order: 3; width: 100%; text-align: center; }
+  .nav-link { 
+    margin: 4px 6px; 
+    font-size: 14px;
+    padding: 6px 8px;
+  }
   .logout-btn {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.8rem;
+    font-size: 14px;
+    padding: 6px 12px;
   }
 }
 </style>
