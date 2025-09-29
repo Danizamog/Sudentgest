@@ -3,8 +3,14 @@ import SignIn from './views/SignIn.vue'
 import Home from './views/Home.vue'
 
 const routes = [
+  // Redirigir siempre a /signin por defecto
+  { path: '/', redirect: '/signin' },
+
   { path: '/signin', component: SignIn },
-  { path: '/', component: Home, meta: { requiresAuth: true } }
+  { path: '/home', component: Home, meta: { requiresAuth: true } },
+
+  // Manejo de rutas no encontradas
+  { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
 
 const router = createRouter({
@@ -12,14 +18,13 @@ const router = createRouter({
   routes
 })
 
-// 🔒 middleware para proteger rutas
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
 
   if (to.meta.requiresAuth && !token) {
     next('/signin')
   } else if (to.path === '/signin' && token) {
-    next('/')
+    next('/home')
   } else {
     next()
   }

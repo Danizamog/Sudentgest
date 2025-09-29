@@ -1,8 +1,8 @@
-# Usar la imagen oficial de .NET 9 SDK para build
+# Etapa de build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /app
 
-# Copiar archivos del proyecto y restaurar dependencias
+# Copiar csproj y restaurar
 COPY *.csproj ./
 RUN dotnet restore
 
@@ -10,10 +10,9 @@ RUN dotnet restore
 COPY . ./
 RUN dotnet publish -c Release -o out
 
-# Imagen final con runtime más liviano
+# Etapa final con runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app/out .
 EXPOSE 5000
 ENTRYPOINT ["dotnet", "Auth.dll"]
-

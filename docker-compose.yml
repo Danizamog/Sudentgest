@@ -1,0 +1,40 @@
+
+services:
+  auth:
+    build: ./back/Auth
+    ports:
+      - "5002:5000"
+    env_file: ./back/Auth/.env
+    depends_on:
+      - db
+
+  users:
+    build: ./back/Users
+    ports:
+      - "5003:5000"
+    env_file: ./back/Users/.env
+    depends_on:
+      - db
+
+  frontend:
+    build: ./front   # Ruta a tu proyecto Vue (donde está package.json y Dockerfile)
+    ports:
+      - "5173:80"       # Exponemos el frontend en el puerto 5173
+    depends_on:
+      - auth
+      - users
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: studentgest
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
