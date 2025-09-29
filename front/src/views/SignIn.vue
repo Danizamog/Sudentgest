@@ -20,7 +20,7 @@
 
       <div class="divider"><span>o</span></div>
 
-      <button type="button" class="btn-google" @click="handleGoogleSignIn">
+      <button type="button" class="btn-google" @click="handleGoogleSignIn" :disabled="loading">
         <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google" />
         Iniciar con Google
       </button>
@@ -41,15 +41,13 @@ const error = ref(null)
 const loading = ref(false)
 const router = useRouter()
 
-// ✅ CORREGIDO: URL dinámica para Docker y desarrollo
 const getBackendUrl = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:5002'  // Desarrollo local
+    return 'http://localhost:5002'
   }
-  return '/api/auth'  // Docker (proxy Nginx)
+  return '/api/auth'
 }
 
-// Obtener tenant según email
 function getTenantFromEmail(email) {
   if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
   if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
@@ -57,12 +55,18 @@ function getTenantFromEmail(email) {
   return null
 }
 
-// Procesar sesión y sincronizar usuario
 async function processSession(session) {
+  console.log('🔹 ProcessSession iniciado', session.user?.email)
+  
   const token = session.access_token
   localStorage.setItem('token', token)
 
   const userEmail = session.user?.email
+  if (!userEmail) {
+    error.value = 'No se pudo obtener el email del usuario.'
+    return
+  }
+
   const tenant = getTenantFromEmail(userEmail)
   if (!tenant) {
     error.value = 'Dominio de correo no permitido.'
@@ -83,13 +87,12 @@ async function processSession(session) {
     if (!res.ok) {
       const backendError = await res.text()
       console.warn('Sync-user falló:', backendError)
-      // ✅ CORREGIDO: No bloqueamos el flujo si sync falla
     }
   } catch (e) {
     console.warn('No se pudo sincronizar con backend:', e)
-    // ✅ CORREGIDO: Continuamos aunque falle sync
   }
 
+  // 🔹 REDIRIGIR AL HOME - esto falta en tu código actual
   router.push('/home')
 }
 
@@ -112,38 +115,43 @@ async function handleSignIn() {
   }
 }
 
-// Login con Google OAuth
+// 🔹 LOGIN CON GOOGLE SIMPLIFICADO - solo inicia el flujo
 async function handleGoogleSignIn() {
   try {
+    error.value = null
+    loading.value = true
+
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { 
         redirectTo: `${window.location.origin}/auth/callback`
       }
     })
+    
     if (err) throw err
+    
   } catch (e) {
     error.value = 'Error al iniciar sesión con Google.'
-    console.error(e)
+    console.error('Google OAuth error:', e)
+  } finally {
+    loading.value = false
   }
 }
 
-// Escuchar cambios de sesión (incluye redirect OAuth)
+// 🔹 ELIMINAR el onAuthStateChange de SignIn.vue - eso causa el problema
+// El AuthCallback.vue ya maneja la redirección después de OAuth
 onMounted(async () => {
+  // Solo verificar sesión existente para email/password
   const { data: { session } } = await supabase.auth.getSession()
   if (session?.access_token) {
-    await processSession(session)
+    // Solo redirigir si ya hay sesión (para usuarios que ya estaban logueados)
+    router.push('/home')
   }
-
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    if (session?.access_token) {
-      await processSession(session)
-    }
-  })
 })
 </script>
 
 <style scoped>
+/* Tus estilos se mantienen igual */
 .signin-container {
   max-width: 400px;
   margin: 5rem auto;

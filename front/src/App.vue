@@ -1,15 +1,26 @@
 <template>
   <div id="app">
-    <HelloWorld msg="Bienvenido al Sistema Académico" />
+    <Navbar />
     <router-view />
   </div>
 </template>
 
-<script>
-import HelloWorld from './components/HelloWorld.vue'
+<script setup>
+import Navbar from './components/Navbar.vue'
+import { onMounted } from 'vue'
+import { supabase } from './supabase'
 
-export default {
-  name: 'App',
-  components: { HelloWorld }
-}
+// 🔹 VERIFICAR SESIÓN AL INICIAR LA APP
+onMounted(async () => {
+  console.log('🔹 App - Verificando sesión inicial...')
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (session) {
+    console.log('🔹 App - Sesión encontrada:', session.user.email)
+    localStorage.setItem('token', session.access_token)
+  } else {
+    console.log('🔹 App - No hay sesión activa')
+    localStorage.removeItem('token')
+  }
+})
 </script>
