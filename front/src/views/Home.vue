@@ -3,14 +3,17 @@
     <h1>Bienvenido, {{ username }}</h1>
     <p>Tenant actual: {{ tenant }}</p>
 
+    <div class="usuarios">
+      <h2>Usuarios en tenant_ucb</h2>
+      <pre>{{ usuariosUcb }}</pre>
+
+      <h2>Usuarios en tenant_upb</h2>
+      <pre>{{ usuariosUpb }}</pre>
+    </div>
+
     <button class="btn-logout" @click="handleLogout">
       Cerrar sesión
     </button>
-
-    <div v-if="userData">
-      <h2>Datos del usuario</h2>
-      <pre>{{ userData }}</pre>
-    </div>
   </div>
 </template>
 
@@ -22,49 +25,44 @@ import { supabase } from '../supabase'
 const router = useRouter()
 const username = ref('')
 const tenant = ref('')
-const userData = ref(null)
+const usuariosUcb = ref([])
+const usuariosUpb = ref([])
 
-// Obtener token del localStorage
-const token = localStorage.getItem('token')
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5002'
-
-
-// Función para obtener tenant desde el email
 function getTenantFromEmail(email) {
-  const domain = email.split('@')[1]?.toLowerCase()
-  if (domain === 'gmail.com') return 'tenant_upb'
-  if (domain === 'ucb.edu.bo') return 'tenant_ucb'
+  if (email.endsWith('@ucb.edu.bo')) return 'tenant_ucb'
+  if (email.endsWith('@upb.edu.bo')) return 'tenant_upb'
+  if (email.endsWith('@gmail.com')) return 'tenant_gmail'
   return null
 }
 
 onMounted(async () => {
   try {
-    // Obtener sesión actual
+    // Sesión actual
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) {
       router.push('/signin')
       return
     }
 
-    // Nombre y tenant
     username.value = session.user.email
     tenant.value = getTenantFromEmail(username.value)
 
-    // Obtener datos del usuario desde el backend según tenant
-    if (tenant.value) {
-      const res = await fetch(`${BACKEND_URL}/api/users/${tenant.value}/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      if (res.ok) {
-        userData.value = await res.json()
-      } else {
-        console.warn('No se pudo obtener datos del usuario')
-      }
-    }
+    // 🔹 Obtener usuarios de tenant_ucb
+    const { data: ucb, error: errUcb } = await supabase.rpc('get_usuarios_ucb')
+    if (errUcb) console.error('Error consultando tenant_ucb:', errUcb)
+    else usuariosUcb.value = ucb
+
+    // 🔹 Obtener usuarios de tenant_upb
+    const { data: upb, error: errUpb } = await supabase.rpc('get_usuarios_upb')
+    if (errUpb) console.error('Error consultando tenant_upb:', errUpb)
+    else usuariosUpb.value = upb
+   
+    const { data: gmail, error: errGmail } = await supabase.rpc('get_usuarios_gmail')
+    if (errGmail) console.error('Error consultando tenant_gmail:', errGmail)
+    else console.log('Usuarios en tenant_gmail:', gmail)
+
   } catch (e) {
-    console.error('Error al cargar home:', e)
+    console.error('Error al cargar Home:', e)
   }
 })
 
@@ -84,18 +82,24 @@ async function handleLogout() {
   text-align: center;
   margin-top: 3rem;
 }
+.usuarios {
+  margin-top: 2rem;
+  text-align: left;
+  display: inline-block;
+}
+pre {
+  background: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
 .btn-logout {
   margin-top: 2rem;
   padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.75rem;
   background-color: #ef4444;
   color: white;
-  font-weight: bold;
+  border: none;
+  border-radius: 0.375rem;
   cursor: pointer;
-  transition: background 0.3s ease;
-}
-.btn-logout:hover {
-  background-color: #b91c1c;
 }
 </style>

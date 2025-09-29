@@ -3,31 +3,16 @@
     <h2 class="title">Iniciar sesión</h2>
 
     <form @submit.prevent="handleSignIn" class="signin-form">
-      <!-- Email -->
       <div class="input-group">
         <label for="email">Correo</label>
-        <input
-          id="email"
-          v-model="email"
-          type="email"
-          placeholder="correo@ejemplo.com"
-          required
-        />
+        <input id="email" v-model="email" type="email" placeholder="correo@ejemplo.com" required />
       </div>
 
-      <!-- Password -->
       <div class="input-group">
         <label for="password">Contraseña</label>
-        <input
-          id="password"
-          v-model="password"
-          type="password"
-          placeholder="••••••••"
-          required
-        />
+        <input id="password" v-model="password" type="password" placeholder="••••••••" required />
       </div>
 
-      <!-- Botón login -->
       <button type="submit" class="btn-primary" :disabled="loading">
         <span v-if="loading">Ingresando...</span>
         <span v-else>Entrar</span>
@@ -35,13 +20,11 @@
 
       <div class="divider"><span>o</span></div>
 
-      <!-- Google Sign-In -->
       <button type="button" class="btn-google" @click="handleGoogleSignIn">
         <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google" />
         Iniciar con Google
       </button>
 
-      <!-- Error -->
       <p v-if="error" class="error">{{ error }}</p>
     </form>
   </div>
@@ -57,53 +40,61 @@ const password = ref('')
 const error = ref(null)
 const loading = ref(false)
 const router = useRouter()
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://auth:5000'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5002'
-
-// Función para obtener tenant según dominio
+// Obtener tenant según email
 function getTenantFromEmail(email) {
-  const domain = email.split('@')[1]?.toLowerCase()
-  if (domain === 'gmail.com') return 'tenant_upb'
-  if (domain === 'ucb.edu.bo') return 'tenant_ucb'
+  if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
+  if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
+  if (email.endsWith('@gmail.com')) return 'gmail.com'
   return null
 }
 
-// Redirigir automáticamente si ya hay sesión
-onMounted(async () => {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session?.access_token) {
-    localStorage.setItem('token', session.access_token)
-    router.push('/home')
+// Procesar sesión y sincronizar usuario
+async function processSession(session) {
+  const token = session.access_token
+  localStorage.setItem('token', token)
+
+  const userEmail = session.user?.email
+  const tenant = getTenantFromEmail(userEmail)
+  if (!tenant) {
+    error.value = 'Dominio de correo no permitido.'
+    return
   }
-})
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/auth/sync-user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ tenant })
+    })
+
+    if (!res.ok) {
+      const backendError = await res.json()
+      console.warn('Sync-user falló:', backendError)
+    }
+  } catch (e) {
+    console.warn('No se pudo sincronizar con backend:', e)
+  }
+
+  router.push('/home')
+}
 
 // Login con email/password
 async function handleSignIn() {
   error.value = null
   loading.value = true
-
   try {
     const { data, error: err } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value
     })
-
     if (err) throw err
-    if (!data.session?.access_token) throw new Error("No se recibió token de Supabase.")
-
-    const token = data.session.access_token
-    localStorage.setItem('token', token)
-
-    const tenant = getTenantFromEmail(email.value)
-    if (!tenant) {
-      error.value = 'Dominio de correo no permitido.'
-      return
-    }
-
-    // Sincronizar usuario con backend
-    await syncUserWithBackend(token, tenant, 'estudiante')
-
-    router.push('/home')
+    if (!data.session?.access_token) throw new Error('No se recibió token de Supabase.')
+    await processSession(data.session)
   } catch (e) {
     error.value = e.message || 'Error inesperado. Intenta nuevamente.'
   } finally {
@@ -114,56 +105,33 @@ async function handleSignIn() {
 // Login con Google OAuth
 async function handleGoogleSignIn() {
   try {
-    const { data, error: err } = await supabase.auth.signInWithOAuth({
+    const { error: err } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin }
     })
     if (err) throw err
-
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.access_token) {
-        const token = session.access_token
-        localStorage.setItem('token', token)
-
-        const userEmail = session.user?.email
-        const tenant = getTenantFromEmail(userEmail)
-        if (!tenant) {
-          error.value = 'Dominio de correo no permitido.'
-          return
-        }
-
-        await syncUserWithBackend(token)
-        router.push('/home')
-      }
-    })
+    // El redirect se encargará de disparar onAuthStateChange
   } catch (e) {
     error.value = 'Error al iniciar sesión con Google.'
     console.error(e)
   }
 }
 
-// Función para sincronizar usuario en backend
-async function syncUserWithBackend(token) {
-  try {
-    const body = JSON.stringify({})
-    const res = await fetch(`${BACKEND_URL}/api/auth/sync-user`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body
-    })
-
-    if (!res.ok) {
-      const backendError = await res.json()
-      console.warn("Sync-user falló:", backendError)
-    }
-  } catch (backendErr) {
-    console.warn("No se pudo sincronizar con backend:", backendErr)
+// Escuchar cambios de sesión (incluye redirect OAuth)
+onMounted(async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.access_token) {
+    await processSession(session)
   }
-}
+
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (session?.access_token) {
+      await processSession(session)
+    }
+  })
+})
 </script>
+
 
 <style scoped>
 .signin-container {

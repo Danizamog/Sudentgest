@@ -5,7 +5,6 @@ import Home from './views/Home.vue'
 const routes = [
   // Redirigir siempre a /signin por defecto
   { path: '/', redirect: '/signin' },
-
   { path: '/signin', component: SignIn },
   { path: '/home', component: Home, meta: { requiresAuth: true } },
 
