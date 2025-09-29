@@ -40,7 +40,14 @@ const password = ref('')
 const error = ref(null)
 const loading = ref(false)
 const router = useRouter()
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://auth:5000'
+
+// ✅ CORREGIDO: URL dinámica para Docker y desarrollo
+const getBackendUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5002'  // Desarrollo local
+  }
+  return '/api/auth'  // Docker (proxy Nginx)
+}
 
 // Obtener tenant según email
 function getTenantFromEmail(email) {
@@ -63,7 +70,8 @@ async function processSession(session) {
   }
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/auth/sync-user`, {
+    const backendUrl = getBackendUrl()
+    const res = await fetch(`${backendUrl}/api/auth/sync-user`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -73,11 +81,13 @@ async function processSession(session) {
     })
 
     if (!res.ok) {
-      const backendError = await res.json()
+      const backendError = await res.text()
       console.warn('Sync-user falló:', backendError)
+      // ✅ CORREGIDO: No bloqueamos el flujo si sync falla
     }
   } catch (e) {
     console.warn('No se pudo sincronizar con backend:', e)
+    // ✅ CORREGIDO: Continuamos aunque falle sync
   }
 
   router.push('/home')
@@ -107,10 +117,11 @@ async function handleGoogleSignIn() {
   try {
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin }
+      options: { 
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
     })
     if (err) throw err
-    // El redirect se encargará de disparar onAuthStateChange
   } catch (e) {
     error.value = 'Error al iniciar sesión con Google.'
     console.error(e)
@@ -131,7 +142,6 @@ onMounted(async () => {
   })
 })
 </script>
-
 
 <style scoped>
 .signin-container {

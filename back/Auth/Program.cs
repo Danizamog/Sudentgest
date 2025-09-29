@@ -1,23 +1,23 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Npgsql;
-using System.Text;
-using System.Text.RegularExpressions;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // 🔹 Cargar .env
 DotNetEnv.Env.Load();
 
 // 🔹 Configuración Supabase
-var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
-var supabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL") 
+    ?? throw new ArgumentNullException("SUPABASE_URL no configurado");
+var supabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY") 
+    ?? throw new ArgumentNullException("SUPABASE_ANON_KEY no configurado");
 var supabaseJwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? supabaseAnonKey;
 
 // 🔹 Configuración DB
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
-var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") 
+    ?? throw new ArgumentNullException("DB_HOST no configurado");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME") 
+    ?? throw new ArgumentNullException("DB_NAME no configurado");
 var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
+var dbPasswordMain = Environment.GetEnvironmentVariable("DB_PASSWORD_MAIN") 
+    ?? throw new ArgumentNullException("DB_PASSWORD_MAIN no configurado");
 var dbPasswordUcb = Environment.GetEnvironmentVariable("DB_PASSWORD_UCB");
 var dbPasswordUpb = Environment.GetEnvironmentVariable("DB_PASSWORD_UPB");
 var dbPasswordGmail = Environment.GetEnvironmentVariable("DB_PASSWORD_GMAIL");
@@ -63,15 +63,19 @@ builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 🔹 CORS
+// 🔹 CORS - Agregar frontend en Docker
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.WithOrigins(
+                "http://localhost:5173", 
+                "http://localhost:3000",
+                "http://frontend:80"  // ✅ Para Docker
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -98,7 +102,9 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 
 async Task<(string schema, string dbUser, string dbPassword)?> GetTenantInfo(string domain)
 {
-    var connString = $"Host={dbHost};Port=5432;Username={dbUser};Password={dbPasswordUcb};Database={dbName};SSL Mode=Require;Trust Server Certificate=true";
+    // ✅ CORREGIDO: Usar DB_PASSWORD_MAIN para conexión principal
+    var connString = $"Host={dbHost};Port=5432;Username={dbUser};Password={dbPasswordMain};Database={dbName};SSL Mode=Require;Trust Server Certificate=true";
+    
     try
     {
         await using var conn = new NpgsqlConnection(connString);
@@ -114,26 +120,29 @@ async Task<(string schema, string dbUser, string dbPassword)?> GetTenantInfo(str
             var schema = reader.GetString(0);
             var tenantDbUser = reader.GetString(1);
             var tenantDomain = reader.GetString(2);
+            
+            // ✅ Lógica mejorada para passwords de tenants
             string dbPassword = tenantDomain switch
             {
-                "ucb.edu.bo" => dbPasswordUcb!,
-                "upb.edu.bo" => dbPasswordUpb!,
-                "gmail.com" => dbPasswordGmail!,
-                _ => throw new Exception("Dominio no soportado")
+                "ucb.edu.bo" => dbPasswordUcb ?? throw new Exception("DB_PASSWORD_UCB no configurado"),
+                "upb.edu.bo" => dbPasswordUpb ?? throw new Exception("DB_PASSWORD_UPB no configurado"),
+                "gmail.com" => dbPasswordGmail ?? throw new Exception("DB_PASSWORD_GMAIL no configurado"),
+                _ => throw new Exception($"Dominio no soportado: {tenantDomain}")
             };
             return (schema, tenantDbUser, dbPassword);
         }
+        return null;
     }
     catch (Exception ex)
     {
         Console.Error.WriteLine($"❌ Error obteniendo tenant info: {ex.Message}");
+        return null;
     }
-    return null;
 }
 
 bool IsValidSchemaName(string schema)
 {
-    return Regex.IsMatch(schema, @"^[a-zA-Z_][a-zA-Z0-9_]*$");
+    return Regex.IsMatch(schema, @"^[a-zA-Z_][a-zA-Z0-9_]{1,63}$");
 }
 
 string BuildConnectionString(string user, string password)
@@ -275,21 +284,23 @@ app.MapPost("/api/auth/sync-user", async (HttpContext context) =>
 .WithName("SyncUser")
 .WithOpenApi();
 
+// ✅ CORREGIDO: Endpoint seguro sin exponer claims
 app.MapGet("/api/auth/me", async (HttpContext context) =>
 {
     try
     {
         var email = context.User.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
         var userId = context.User.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+        
         if (string.IsNullOrEmpty(email))
             return Results.Unauthorized();
 
-        var claims = context.User.Claims.Select(c => new { c.Type, c.Value }).ToList();
         return Results.Ok(new
         {
             email,
             userId,
-            claims // ⚠️ Remover en producción si contiene info sensible
+            isAuthenticated = true,
+            timestamp = DateTime.UtcNow
         });
     }
     catch (Exception ex)
@@ -306,7 +317,8 @@ app.MapGet("/api/tenants", async () =>
 {
     try
     {
-        var connString = $"Host={dbHost};Port=5432;Username={dbUser};Password={dbPasswordUcb};Database={dbName};SSL Mode=Require;Trust Server Certificate=true";
+        // ✅ CORREGIDO: Usar DB_PASSWORD_MAIN
+        var connString = $"Host={dbHost};Port=5432;Username={dbUser};Password={dbPasswordMain};Database={dbName};SSL Mode=Require;Trust Server Certificate=true";
         await using var conn = new NpgsqlConnection(connString);
         await conn.OpenAsync();
         var cmd = new NpgsqlCommand("SELECT domain, schema_name FROM public.tenant ORDER BY domain", conn);
@@ -331,6 +343,7 @@ app.MapGet("/api/tenants", async () =>
 })
 .WithName("GetTenants")
 .WithOpenApi();
+
 Console.WriteLine("🚀 API Multi-tenant iniciada correctamente");
 Console.WriteLine($"📍 Environment: {app.Environment.EnvironmentName}");
 Console.WriteLine($"🔗 Supabase URL: {supabaseUrl}");
