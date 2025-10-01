@@ -17,6 +17,16 @@ var supabaseJwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET"
 var supabaseServiceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY") 
     ?? throw new ArgumentNullException("SUPABASE_SERVICE_ROLE_KEY no configurado");
 
+// 🔹 DEBUG: Verificar configuración
+Console.WriteLine("🔹 ===========================================");
+Console.WriteLine("🔹 VERIFICACIÓN CREDENCIALES SUPABASE");
+Console.WriteLine("🔹 ===========================================");
+Console.WriteLine($"🔹 SUPABASE_URL: {supabaseUrl}");
+Console.WriteLine($"🔹 SUPABASE_ANON_KEY length: {supabaseAnonKey?.Length}");
+Console.WriteLine($"🔹 SUPABASE_SERVICE_ROLE_KEY length: {supabaseServiceRoleKey?.Length}");
+Console.WriteLine($"🔹 SUPABASE_JWT_SECRET length: {supabaseJwtSecret?.Length}");
+Console.WriteLine("🔹 ===========================================");
+
 // 🔹 JWT Authentication con Supabase
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -105,23 +115,21 @@ async Task<(string schema, string domain)?> GetTenantInfo(string domain)
     }
 }
 
-// 🔹 Crear usuario usando Supabase REST API
-// 🔹 FUNCIÓN ACTUALIZADA: Usar SERVICE_ROLE_KEY para bypass RLS
+// 🔹 FUNCIÓN CORREGIDA: Usar AMBOS headers (apikey Y Authorization)
+// 🔹 FUNCIÓN CORREGIDA: Separar nombre y apellido según especificaciones
 async Task<bool> CreateUserViaSupabaseAPI(string email, string fullName, string schema)
 {
     try
     {
         using var httpClient = new HttpClient();
         
-        // 🔹 CAMBIAR: Usar SERVICE_ROLE_KEY en lugar de ANON_KEY
+        // Headers
         httpClient.DefaultRequestHeaders.Add("apikey", supabaseServiceRoleKey);
         httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {supabaseServiceRoleKey}");
         httpClient.DefaultRequestHeaders.Add("Prefer", "return=representation");
 
-        // Parsear nombre completo
-        var parts = fullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        var nombre = parts.Length > 0 ? parts[0] : "Usuario";
-        var apellido = parts.Length > 1 ? parts[1] : "";
+        // 🔹 USAR FUNCIÓN CORREGIDA
+        var (nombre, apellido) = SplitFullName(fullName);
 
         // Crear objeto de usuario
         var userData = new
@@ -129,20 +137,29 @@ async Task<bool> CreateUserViaSupabaseAPI(string email, string fullName, string 
             nombre = nombre,
             apellido = apellido,
             email = email,
-            rol = "estudiante"
+            rol = "estudiante",
+            created_at = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         };
 
         // Tabla name basada en el schema
         var tableName = $"{schema}_usuarios";
-        var response = await httpClient.PostAsJsonAsync(
-            $"{supabaseUrl}/rest/v1/{tableName}",
-            userData,
-            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
-        );
+        
+        Console.WriteLine($"🔹 Creando usuario - Nombre: '{nombre}' | Apellido: '{apellido}'");
+
+        var jsonOptions = new JsonSerializerOptions 
+        { 
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        
+        var jsonContent = JsonSerializer.Serialize(userData, jsonOptions);
+        var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+        
+        var response = await httpClient.PostAsync($"{supabaseUrl}/rest/v1/{tableName}", content);
 
         if (response.IsSuccessStatusCode)
         {
-            Console.WriteLine($"✅ Usuario creado via API: {email} en {tableName}");
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"✅ Usuario creado exitosamente: {email}");
             return true;
         }
         else
@@ -154,37 +171,78 @@ async Task<bool> CreateUserViaSupabaseAPI(string email, string fullName, string 
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ Error en Supabase API: {ex.Message}");
+        Console.WriteLine($"❌ Exception en Supabase API: {ex.Message}");
         return false;
     }
 }
 
-// 🔹 También actualiza la función CheckUserExists para usar service role
+// 🔹 FUNCIÓN MEJORADA: Según tus especificaciones exactas
+(string nombre, string apellido) SplitFullName(string fullName)
+{
+    if (string.IsNullOrWhiteSpace(fullName))
+        return ("Usuario", "");
+
+    var parts = fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    
+    Console.WriteLine($"🔹 SplitFullName - Partes: {parts.Length}, Original: '{fullName}'");
+    
+    switch (parts.Length)
+    {
+        case 0:
+            return ("Usuario", "");
+        case 1:
+            // 1 parte: "Daniel" → Nombre: "Daniel", Apellido: ""
+            return (parts[0], "");
+        case 2:
+            // 2 partes: "Daniel Zamorano" → Nombre: "Daniel", Apellido: "Zamorano"
+            return (parts[0], parts[1]);
+        case 3:
+            // 3 partes: "Daniel Alejandro Zamorano" → Nombre: "Daniel", Apellido: "Zamorano"
+            return (parts[0], parts[2]);
+        case 4:
+            // 4 partes: "Daniel Alejandro Zamorano Gamarra" → Nombre: "Daniel Alejandro", Apellido: "Zamorano Gamarra"
+            return ($"{parts[0]} {parts[1]}", $"{parts[2]} {parts[3]}");
+        default:
+            // 5+ partes: "Daniel Alejandro Zamorano Gamarra Lopez" → Nombre: "Daniel Alejandro", Apellido: "Zamorano"
+            return ($"{parts[0]} {parts[1]}", parts[2]);
+    }
+}
+// 🔹 FUNCIÓN CORREGIDA: CheckUserExists con AMBOS headers
 async Task<bool> CheckUserExists(string email, string schema)
 {
     try
     {
         using var httpClient = new HttpClient();
+        // 🔹 CORRECCIÓN: Usar AMBOS headers
         httpClient.DefaultRequestHeaders.Add("apikey", supabaseServiceRoleKey);
         httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {supabaseServiceRoleKey}");
 
         var tableName = $"{schema}_usuarios";
-        var response = await httpClient.GetAsync(
-            $"{supabaseUrl}/rest/v1/{tableName}?email=eq.{email}&select=id"
-        );
+        var encodedEmail = Uri.EscapeDataString(email);
+        var url = $"{supabaseUrl}/rest/v1/{tableName}?email=eq.{encodedEmail}&select=id";
+        
+        Console.WriteLine($"🔹 Verificando usuario en: {url}");
+        
+        var response = await httpClient.GetAsync(url);
 
         if (response.IsSuccessStatusCode)
         {
             var content = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"🔹 Respuesta check exists: {content}");
             var users = JsonSerializer.Deserialize<JsonElement[]>(content);
             return users?.Length > 0;
         }
-        
-        return false;
+        else
+        {
+            Console.WriteLine($"❌ Error verificando usuario. Status: {response.StatusCode}");
+            var errorContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"❌ Error details: {errorContent}");
+            return false;
+        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ Error verificando usuario: {ex.Message}");
+        Console.WriteLine($"❌ Exception verificando usuario: {ex.Message}");
         return false;
     }
 }
@@ -316,7 +374,97 @@ app.MapPost("/api/auth/sync-user", async (HttpContext context) =>
 .WithName("SyncUser")
 .WithOpenApi();
 
+// 🔹 Endpoint para obtener perfil de usuario
+// 🔹 Endpoint para obtener perfil de usuario
+app.MapGet("/api/auth/user-profile", async (HttpContext context) =>
+{
+    try
+    {
+        Console.WriteLine("🔹 ===========================================");
+        Console.WriteLine("🔹 USER-PROFILE ENDPOINT INICIADO");
+        Console.WriteLine("🔹 ===========================================");
 
+        var email = context.User.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+        
+        Console.WriteLine($"🔹 Email del token: {email}");
+
+        if (string.IsNullOrEmpty(email))
+            return Results.Unauthorized();
+
+        var tenant = GetTenantFromEmail(email);
+        Console.WriteLine($"🔹 Tenant detectado: {tenant}");
+
+        if (tenant == null)
+            return Results.NotFound(new { error = "Tenant no encontrado." });
+
+        var tenantInfo = await GetTenantInfo(tenant);
+        if (tenantInfo == null)
+            return Results.NotFound(new { error = "Tenant no encontrado." });
+
+        var (schema, domain) = tenantInfo.Value;
+        Console.WriteLine($"🔹 Schema: {schema}");
+
+        // Buscar usuario en la base de datos
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Add("apikey", supabaseServiceRoleKey);
+        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {supabaseServiceRoleKey}");
+
+        var tableName = $"{schema}_usuarios";
+        var encodedEmail = Uri.EscapeDataString(email);
+        var url = $"{supabaseUrl}/rest/v1/{tableName}?email=eq.{encodedEmail}&select=*";
+        
+        Console.WriteLine($"🔹 Buscando usuario en: {url}");
+
+        var response = await httpClient.GetAsync(url);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"🔹 Respuesta de la API: {content}");
+            
+            var users = JsonSerializer.Deserialize<JsonElement[]>(content);
+            
+            if (users?.Length > 0)
+            {
+                var user = users[0];
+                var profile = new
+                {
+                    nombre = user.GetProperty("nombre").GetString() ?? "Usuario",
+                    apellido = user.GetProperty("apellido").GetString() ?? "",
+                    email = user.GetProperty("email").GetString() ?? email,
+                    rol = user.GetProperty("rol").GetString() ?? "estudiante"
+                };
+                
+                Console.WriteLine($"✅ Perfil encontrado: {profile.nombre} - Rol: {profile.rol}");
+                Console.WriteLine("🔹 ===========================================");
+                
+                return Results.Ok(profile);
+            }
+        }
+
+        Console.WriteLine("❌ Usuario no encontrado en la base de datos");
+        Console.WriteLine("🔹 ===========================================");
+        return Results.NotFound(new { error = "Usuario no encontrado." });
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"❌ Error obteniendo perfil: {ex.Message}");
+        Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
+        return Results.Problem("Error interno del servidor.");
+    }
+})
+.RequireAuthorization()
+.WithName("GetUserProfile")
+.WithOpenApi();
+
+// 🔹 Función helper para obtener tenant del email
+string GetTenantFromEmail(string email)
+{
+    if (email.EndsWith("@ucb.edu.bo")) return "ucb.edu.bo";
+    if (email.EndsWith("@upb.edu.bo")) return "upb.edu.bo";
+    if (email.EndsWith("@gmail.com")) return "gmail.com";
+    return null;
+}
 // 🔹 Endpoint para obtener usuarios de un tenant
 app.MapGet("/api/usuarios/{tenantDomain}", async (string tenantDomain) =>
 {
