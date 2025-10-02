@@ -5,7 +5,7 @@
     <form @submit.prevent="handleSignIn" class="signin-form">
       <div class="input-group">
         <label for="email">Correo</label>
-        <input id="email" v-model="email" type="email" placeholder="correo@ejemplo.com" required />
+        <input id="email" v-model="email" type="email" placeholder="correo@ucb.edu.bo o correo@gmail.com" required />
       </div>
 
       <div class="input-group">
@@ -25,6 +25,15 @@
         Iniciar con Google
       </button>
 
+      <div class="domain-info">
+        <p>🔐 Dominios soportados:</p>
+        <ul>
+          <li>@ucb.edu.bo - Base de datos UCB</li>
+          <li>@gmail.com - Base de datos Gmail</li>
+        </ul>
+        <p class="auto-create">✅ Los usuarios se crean automáticamente al primer inicio de sesión</p>
+      </div>
+
       <p v-if="error" class="error">{{ error }}</p>
     </form>
   </div>
@@ -33,7 +42,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '../supabase'
+import { getSupabaseClient, supabase } from '../supabase'
 
 const email = ref('')
 const password = ref('')
@@ -50,18 +59,16 @@ const getBackendUrl = () => {
 
 function getTenantFromEmail(email) {
   if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
-  if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
   if (email.endsWith('@gmail.com')) return 'gmail.com'
   return null
 }
 
-async function processSession(session) {
-  console.log('🔹 ProcessSession iniciado', session.user?.email)
+async function processSession(session, userEmail) {
+  console.log('🔹 ProcessSession iniciado', userEmail)
   
   const token = session.access_token
   localStorage.setItem('token', token)
 
-  const userEmail = session.user?.email
   if (!userEmail) {
     error.value = 'No se pudo obtener el email del usuario.'
     return
@@ -69,12 +76,14 @@ async function processSession(session) {
 
   const tenant = getTenantFromEmail(userEmail)
   if (!tenant) {
-    error.value = 'Dominio de correo no permitido.'
+    error.value = 'Dominio de correo no permitido. Use @ucb.edu.bo o @gmail.com'
     return
   }
 
   try {
     const backendUrl = getBackendUrl()
+    console.log('🔹 Sincronizando usuario con backend...', { email: userEmail, tenant })
+    
     const res = await fetch(`${backendUrl}/api/auth/sync-user`, {
       method: 'POST',
       headers: {
@@ -84,15 +93,21 @@ async function processSession(session) {
       body: JSON.stringify({ tenant })
     })
 
-    if (!res.ok) {
+    if (res.ok) {
+      const result = await res.json()
+      console.log('✅ Sync-user exitoso:', result)
+      if (result.isNewUser) {
+        console.log('🎉 Nuevo usuario creado automáticamente en', tenant)
+      }
+    } else {
       const backendError = await res.text()
-      console.warn('Sync-user falló:', backendError)
+      console.warn('⚠️ Sync-user falló:', backendError)
     }
   } catch (e) {
-    console.warn('No se pudo sincronizar con backend:', e)
+    console.warn('⚠️ No se pudo sincronizar con backend:', e)
   }
 
-  // 🔹 REDIRIGIR AL HOME - esto falta en tu código actual
+  // Redirigir al home independientemente del resultado del sync
   router.push('/home')
 }
 
@@ -101,30 +116,52 @@ async function handleSignIn() {
   error.value = null
   loading.value = true
   try {
-    const { data, error: err } = await supabase.auth.signInWithPassword({
-      email: email.value,
+    const userEmail = email.value
+    const tenant = getTenantFromEmail(userEmail)
+    
+    if (!tenant) {
+      throw new Error('Dominio no permitido. Use @ucb.edu.bo o @gmail.com')
+    }
+
+    console.log('🔹 Iniciando sesión con:', userEmail, 'Tenant:', tenant)
+    
+    // Usar el cliente Supabase correcto según el dominio
+    const supabaseClient = getSupabaseClient(userEmail)
+    
+    const { data, error: err } = await supabaseClient.auth.signInWithPassword({
+      email: userEmail,
       password: password.value
     })
+    
     if (err) throw err
     if (!data.session?.access_token) throw new Error('No se recibió token de Supabase.')
-    await processSession(data.session)
+    
+    await processSession(data.session, userEmail)
   } catch (e) {
     error.value = e.message || 'Error inesperado. Intenta nuevamente.'
+    console.error('❌ Error en login:', e)
   } finally {
     loading.value = false
   }
 }
 
-// 🔹 LOGIN CON GOOGLE SIMPLIFICADO - solo inicia el flujo
+// Login con Google - NECESITA SER CONFIGURADO EN AMBAS BASES
 async function handleGoogleSignIn() {
   try {
     error.value = null
     loading.value = true
 
+    // Para Google OAuth, necesitamos determinar a qué base de datos redirigir
+    // Por ahora usamos la base de Gmail como predeterminada
+    // Más adelante podemos implementar una selección
+    
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { 
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     })
     
@@ -138,13 +175,9 @@ async function handleGoogleSignIn() {
   }
 }
 
-// 🔹 ELIMINAR el onAuthStateChange de SignIn.vue - eso causa el problema
-// El AuthCallback.vue ya maneja la redirección después de OAuth
 onMounted(async () => {
-  // Solo verificar sesión existente para email/password
   const { data: { session } } = await supabase.auth.getSession()
   if (session?.access_token) {
-    // Solo redirigir si ya hay sesión (para usuarios que ya estaban logueados)
     router.push('/home')
   }
 })
@@ -162,19 +195,144 @@ onMounted(async () => {
   font-family: 'Inter', sans-serif;
   text-align: center;
 }
-.title { font-size: 1.75rem; font-weight: 700; margin-bottom: 2rem; color: #1f2937; }
-.signin-form .input-group { margin-bottom: 1.5rem; text-align: left; }
-.signin-form label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #374151; }
-.signin-form input { width: 100%; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid #d1d5db; background: #f9fafb; transition: border 0.2s ease; }
-.signin-form input:focus { border-color: #4f46e5; outline: none; background: #fff; }
-.btn-primary { width: 100%; padding: 0.85rem; border: none; border-radius: 0.75rem; background-color: #4f46e5; color: white; font-weight: 600; cursor: pointer; transition: background 0.3s ease; margin-top: 0.5rem; }
-.btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; }
-.btn-primary:hover:not(:disabled) { background-color: #3730a3; }
-.divider { display: flex; align-items: center; margin: 1.5rem 0; color: #6b7280; font-size: 0.9rem; }
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
-.divider span { margin: 0 0.75rem; }
-.btn-google { width: 100%; padding: 0.85rem; border: 1px solid #d1d5db; border-radius: 0.75rem; background-color: #fff; font-weight: 600; color: #374151; display: flex; align-items: center; justify-content: center; gap: 0.75rem; cursor: pointer; transition: background 0.2s ease, border 0.2s ease; }
-.btn-google:hover { background-color: #f9fafb; border-color: #9ca3af; }
-.btn-google img { width: 20px; height: 20px; }
-.error { margin-top: 1rem; color: #dc2626; font-weight: bold; font-size: 0.9rem; }
+
+.title { 
+  font-size: 1.75rem; 
+  font-weight: 700; 
+  margin-bottom: 2rem; 
+  color: #1f2937; 
+}
+
+.signin-form .input-group { 
+  margin-bottom: 1.5rem; 
+  text-align: left; 
+}
+
+.signin-form label { 
+  display: block; 
+  margin-bottom: 0.4rem; 
+  font-weight: 600; 
+  color: #374151; 
+}
+
+.signin-form input { 
+  width: 100%; 
+  padding: 0.75rem; 
+  border-radius: 0.75rem; 
+  border: 1px solid #d1d5db; 
+  background: #f9fafb; 
+  transition: border 0.2s ease; 
+}
+
+.signin-form input:focus { 
+  border-color: #4f46e5; 
+  outline: none; 
+  background: #fff; 
+}
+
+.btn-primary { 
+  width: 100%; 
+  padding: 0.85rem; 
+  border: none; 
+  border-radius: 0.75rem; 
+  background-color: #4f46e5; 
+  color: white; 
+  font-weight: 600; 
+  cursor: pointer; 
+  transition: background 0.3s ease; 
+  margin-top: 0.5rem; 
+}
+
+.btn-primary:disabled { 
+  background-color: #a5b4fc; 
+  cursor: not-allowed; 
+}
+
+.btn-primary:hover:not(:disabled) { 
+  background-color: #3730a3; 
+}
+
+.divider { 
+  display: flex; 
+  align-items: center; 
+  margin: 1.5rem 0; 
+  color: #6b7280; 
+  font-size: 0.9rem; 
+}
+
+.divider::before, .divider::after { 
+  content: ''; 
+  flex: 1; 
+  height: 1px; 
+  background: #e5e7eb; 
+}
+
+.divider span { 
+  margin: 0 0.75rem; 
+}
+
+.btn-google { 
+  width: 100%; 
+  padding: 0.85rem; 
+  border: 1px solid #d1d5db; 
+  border-radius: 0.75rem; 
+  background-color: #fff; 
+  font-weight: 600; 
+  color: #374151; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 0.75rem; 
+  cursor: pointer; 
+  transition: background 0.2s ease, border 0.2s ease; 
+}
+
+.btn-google:hover { 
+  background-color: #f9fafb; 
+  border-color: #9ca3af; 
+}
+
+.btn-google img { 
+  width: 20px; 
+  height: 20px; 
+}
+
+.domain-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.domain-info p {
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+  color: #374151;
+}
+
+.domain-info ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #6b7280;
+}
+
+.domain-info li {
+  margin-bottom: 0.25rem;
+}
+
+.auto-create {
+  margin-top: 0.5rem !important;
+  color: #059669 !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+}
+
+.error { 
+  margin-top: 1rem; 
+  color: #dc2626; 
+  font-weight: bold; 
+  font-size: 0.9rem; 
+}
 </style>
