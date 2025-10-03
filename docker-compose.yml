@@ -16,12 +16,4 @@ services:
     ports:
       - "5173:80"
     env_file: ./front/.env
-    depends_on:
-      auth:
-        condition: service_healthy
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 5
-        window: 120s
+    

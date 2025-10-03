@@ -138,20 +138,18 @@ async function handleGoogleSignIn() {
   }
 }
 
-// 🔹 ELIMINAR el onAuthStateChange de SignIn.vue - eso causa el problema
-// El AuthCallback.vue ya maneja la redirección después de OAuth
 onMounted(async () => {
-  // Solo verificar sesión existente para email/password
+
   const { data: { session } } = await supabase.auth.getSession()
   if (session?.access_token) {
-    // Solo redirigir si ya hay sesión (para usuarios que ya estaban logueados)
+ 
     router.push('/home')
   }
 })
 </script>
 
 <style scoped>
-/* Tus estilos se mantienen igual */
+
 .signin-container {
   max-width: 400px;
   margin: 5rem auto;

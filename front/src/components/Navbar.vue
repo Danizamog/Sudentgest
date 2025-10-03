@@ -19,36 +19,22 @@
         <!-- Desktop Navigation -->
         <div class="nav-desktop">
           <div class="nav-main">
-            <router-link to="/home" class="nav-link">
-              <span class="nav-icon">🏠</span>
-              Inicio
-            </router-link>
-            <router-link to="/foro" class="nav-link">
-              <span class="nav-icon">💬</span>
-              Foro
-            </router-link>
-            <router-link to="/pricing" class="nav-link">
-              <span class="nav-icon">💰</span>
-              Precios
-            </router-link>
-            <router-link to="/nosotros" class="nav-link">
-              <span class="nav-icon">👥</span>
-              Nosotros
-            </router-link>
+            <router-link to="/home" class="nav-link">Inicio</router-link>
+            <router-link to="/foro" class="nav-link">Foro</router-link>
+            <router-link to="/pricing" class="nav-link">Precios</router-link>
+            <router-link to="/nosotros" class="nav-link">Nosotros</router-link>
             <router-link 
               v-if="userProfile?.rol === 'director'" 
               to="/base" 
               class="nav-link admin-link"
             >
-              <span class="nav-icon">🗃️</span>
               Roles
             </router-link>
           </div>
 
           <div class="nav-actions">
             <button @click="handleLogout" class="logout-btn" :disabled="loading">
-              <span class="btn-icon">{{ loading ? '⏳' : '🚪' }}</span>
-              <span class="btn-text">{{ loading ? 'Cerrando...' : 'Cerrar sesión' }}</span>
+              {{ loading ? 'Cerrando...' : 'Cerrar sesión' }}
             </button>
           </div>
         </div>
@@ -56,7 +42,7 @@
         <!-- Mobile Navigation -->
         <div class="nav-mobile">
           <button @click="toggleMobileMenu" class="mobile-menu-btn">
-            <span class="menu-icon">☰</span>
+            ☰
           </button>
           
           <div v-if="mobileMenuOpen" class="mobile-menu-overlay" @click="toggleMobileMenu"></div>
@@ -65,52 +51,26 @@
             <div class="mobile-menu-header">
               <h3>Menú</h3>
               <button @click="toggleMobileMenu" class="close-menu-btn">
-                <span class="close-icon">×</span>
+                ×
               </button>
             </div>
             
             <div class="mobile-nav-links">
-              <router-link to="/home" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">🏠</span>
-                Inicio
-              </router-link>
-              <router-link to="/foro" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">💬</span>
-                Foro
-              </router-link>
-              <router-link to="/features" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">⭐</span>
-                Características
-              </router-link>
-              <router-link to="/pricing" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">💰</span>
-                Precios
-              </router-link>
-              <router-link to="/info" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">ℹ️</span>
-                Información
-              </router-link>
-              <router-link to="/contact" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">📞</span>
-                Contacto
-              </router-link>
-              <router-link to="/nosotros" class="nav-link" @click="toggleMobileMenu">
-                <span class="nav-icon">👥</span>
-                Nosotros
-              </router-link>
+              <router-link to="/home" class="nav-link" @click="toggleMobileMenu">Inicio</router-link>
+              <router-link to="/foro" class="nav-link" @click="toggleMobileMenu">Foro</router-link>
+              <router-link to="/pricing" class="nav-link" @click="toggleMobileMenu">Precios</router-link>
+              <router-link to="/nosotros" class="nav-link" @click="toggleMobileMenu">Nosotros</router-link>
               <router-link 
                 v-if="userProfile?.rol === 'director'" 
                 to="/base" 
                 class="nav-link admin-link"
                 @click="toggleMobileMenu"
               >
-                <span class="nav-icon">🗃️</span>
                 Base de Datos
               </router-link>
               
               <button @click="handleLogout" class="logout-btn mobile-logout" :disabled="loading">
-                <span class="btn-icon">{{ loading ? '⏳' : '🚪' }}</span>
-                <span class="btn-text">{{ loading ? 'Cerrando...' : 'Cerrar sesión' }}</span>
+                {{ loading ? 'Cerrando...' : 'Cerrar sesión' }}
               </button>
             </div>
           </div>
@@ -132,13 +92,11 @@ const isAuthenticated = ref(false)
 const userProfile = ref(null)
 const mobileMenuOpen = ref(false)
 
-// 🔹 COMPUTED: Mostrar navbar solo si está autenticado Y no está en signin
 const showNavbar = computed(() => {
   const hideOnRoutes = ['/signin', '/', '/auth/callback']
   return isAuthenticated.value && !hideOnRoutes.includes(route.path)
 })
 
-// 🔹 FUNCIÓN: Obtener perfil del usuario desde el backend
 async function getUserProfile() {
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -147,11 +105,9 @@ async function getUserProfile() {
     const token = localStorage.getItem('token')
     if (!token) return null
 
-    // Obtener tenant del email
     const tenant = getTenantFromEmail(user.email)
     if (!tenant) return null
 
-    // Llamar al backend para obtener el perfil real
     const backendUrl = window.location.hostname === 'localhost' ? 'http://localhost:5002' : '/api/auth'
     
     const response = await fetch(`${backendUrl}/api/auth/user-profile`, {
@@ -165,10 +121,7 @@ async function getUserProfile() {
     if (response.ok) {
       const profileData = await response.json()
       userProfile.value = profileData
-      console.log('🔹 Perfil de usuario obtenido:', profileData)
     } else {
-      console.warn('No se pudo obtener el perfil del usuario, usando datos básicos')
-      // Fallback a datos básicos
       userProfile.value = {
         nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario',
         email: user.email,
@@ -177,8 +130,6 @@ async function getUserProfile() {
     }
     
   } catch (error) {
-    console.error('Error obteniendo perfil:', error)
-    // Fallback en caso de error
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       userProfile.value = {
@@ -197,7 +148,6 @@ function getTenantFromEmail(email) {
   return null
 }
 
-// 🔹 FUNCIÓN: Verificar autenticación
 async function checkAuth() {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -210,16 +160,12 @@ async function checkAuth() {
     } else {
       userProfile.value = null
     }
-    
-    console.log('🔹 Navbar - Autenticado:', isAuthenticated.value, 'Ruta:', route.path)
   } catch (error) {
-    console.error('Error verificando autenticación:', error)
     isAuthenticated.value = false
     userProfile.value = null
   }
 }
 
-// 🔹 FUNCIÓN: Toggle menú móvil
 function toggleMobileMenu() {
   mobileMenuOpen.value = !mobileMenuOpen.value
   if (mobileMenuOpen.value) {
@@ -229,10 +175,8 @@ function toggleMobileMenu() {
   }
 }
 
-// 🔹 ESCUCHAR CAMBIOS
 function setupListeners() {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔹 Navbar - Auth state change:', event)
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {
     await checkAuth()
   })
 
@@ -248,51 +192,32 @@ function setupListeners() {
   }
 }
 
-// 🔹 FUNCIÓN CORREGIDA: Cerrar sesión sin redirección automática
 async function handleLogout() {
   try {
     loading.value = true
-    console.log('🔹 Navbar - Iniciando cierre de sesión...')
     
-    // 1. Cerrar sesión en Supabase
     const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error('Error en supabase signOut:', error)
-      throw error
-    }
+    if (error) throw error
     
-    // 2. Limpiar localStorage
     localStorage.removeItem('token')
-    
-    // 3. Resetear estado local
     isAuthenticated.value = false
     userProfile.value = null
     mobileMenuOpen.value = false
     document.body.style.overflow = 'auto'
     
-    console.log('🔹 Navbar - Sesión cerrada exitosamente')
-    
-    // 4. Redirigir al signin manualmente
     router.push('/signin')
 
   } catch (error) {
-    console.error('Error completo al cerrar sesión:', error)
-    
-    // Forzar limpieza incluso si hay error
     localStorage.removeItem('token')
     isAuthenticated.value = false
     userProfile.value = null
-    
-    // Redirigir incluso con error
     router.push('/signin')
-    
   } finally {
     loading.value = false
   }
 }
 
 onMounted(() => {
-  console.log('🔹 Navbar - Montado')
   checkAuth()
   const cleanup = setupListeners()
   
@@ -316,13 +241,11 @@ onMounted(() => {
   padding: 0 20px;
 }
 
-/* HEADER STYLES */
 .site-header {
   width: 100%;
-  background: linear-gradient(135deg, #111318 0%, #1a1d24 100%);
+  background: #111318;
   color: #ffffff;
   padding: 12px 0;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   border-bottom: 1px solid #2d3748;
 }
 
@@ -336,12 +259,7 @@ onMounted(() => {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  letter-spacing: 0.5px;
   color: #ffffff;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .user-info {
@@ -363,29 +281,24 @@ onMounted(() => {
   font-weight: 600;
   text-transform: capitalize;
   border: 1px solid;
-  transition: all 0.3s ease;
 }
 
 .user-role.director {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: #10b981;
   color: white;
   border-color: #10b981;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .user-role.estudiante {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: #3b82f6;
   color: white;
   border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
-/* NAVIGATION STYLES */
 .site-nav {
   width: 100%;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .nav-desktop {
@@ -410,7 +323,6 @@ onMounted(() => {
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 8px;
   padding: 10px 16px;
   color: #475569;
   text-decoration: none;
@@ -419,60 +331,30 @@ onMounted(() => {
   border-radius: 8px;
   transition: all 0.3s ease;
   white-space: nowrap;
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-link::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
-  transition: left 0.5s ease;
-}
-
-.nav-link:hover::before {
-  left: 100%;
 }
 
 .nav-link:hover {
   background: #ffffff;
   color: #1e293b;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .nav-link.router-link-active,
 .nav-link.router-link-exact-active {
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  background: #e0e7ff;
   color: #3730a3;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(55, 48, 163, 0.2);
 }
 
 .nav-link.admin-link {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: #fef3c7;
   color: #92400e;
   font-weight: 600;
   border: 1px solid #f59e0b;
 }
 
 .nav-link.admin-link.router-link-active {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: #f59e0b;
   color: white;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
-}
-
-.nav-icon {
-  font-size: 16px;
-  transition: transform 0.3s ease;
-}
-
-.nav-link:hover .nav-icon {
-  transform: scale(1.1);
 }
 
 .nav-actions {
@@ -480,12 +362,10 @@ onMounted(() => {
   align-items: center;
 }
 
-/* LOGOUT BUTTON STYLES */
 .logout-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: #dc2626;
   color: #ffffff;
   padding: 10px 20px;
   border-radius: 8px;
@@ -494,50 +374,17 @@ onMounted(() => {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.logout-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.logout-btn:hover::before {
-  left: 100%;
 }
 
 .logout-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
-}
-
-.logout-btn:active {
-  transform: translateY(0);
+  background: #b91c1c;
 }
 
 .logout-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
 }
 
-.btn-icon {
-  font-size: 16px;
-  transition: transform 0.3s ease;
-}
-
-.logout-btn:hover .btn-icon {
-  transform: scale(1.1);
-}
-
-/* MOBILE STYLES */
 .nav-mobile {
   display: none;
 }
@@ -561,17 +408,10 @@ onMounted(() => {
   border-radius: 8px;
   transition: all 0.3s ease;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .mobile-menu-btn:hover {
   background: #f1f5f9;
-  transform: translateY(-2px);
-}
-
-.menu-icon {
-  font-size: 20px;
-  font-weight: bold;
 }
 
 .mobile-menu-overlay {
@@ -582,12 +422,6 @@ onMounted(() => {
   bottom: 0;
   background: rgba(0,0,0,0.5);
   z-index: 999;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .mobile-menu {
@@ -597,7 +431,6 @@ onMounted(() => {
   width: 300px;
   height: 100vh;
   background: white;
-  box-shadow: -4px 0 20px rgba(0,0,0,0.15);
   transition: right 0.3s ease;
   z-index: 1000;
   display: flex;
@@ -614,7 +447,7 @@ onMounted(() => {
   align-items: center;
   padding: 20px;
   border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #f8fafc;
 }
 
 .mobile-menu-header h3 {
@@ -636,12 +469,6 @@ onMounted(() => {
 
 .close-menu-btn:hover {
   background: #f1f5f9;
-  transform: scale(1.1);
-}
-
-.close-icon {
-  font-size: 24px;
-  font-weight: bold;
 }
 
 .mobile-nav-links {
@@ -665,7 +492,6 @@ onMounted(() => {
   justify-content: center;
 }
 
-/* RESPONSIVE ADJUSTMENTS */
 @media (max-width: 1024px) {
   .nav-main {
     gap: 1px;
@@ -687,23 +513,17 @@ onMounted(() => {
     font-size: 12px;
   }
   
-  .logout-btn .btn-text {
-    display: none;
-  }
-  
   .logout-btn {
     padding: 10px;
   }
 }
 
-/* SCROLLBAR STYLING */
 .mobile-nav-links::-webkit-scrollbar {
   width: 6px;
 }
 
 .mobile-nav-links::-webkit-scrollbar-track {
   background: #f1f5f9;
-  border-radius: 3px;
 }
 
 .mobile-nav-links::-webkit-scrollbar-thumb {
