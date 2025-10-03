@@ -16,3 +16,4 @@ services:
     ports:
       - "5173:80"
     env_file: ./front/.env
+

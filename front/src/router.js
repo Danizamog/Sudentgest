@@ -32,7 +32,6 @@ const routes = [
     meta: { requiresAuth: false } 
   },
 
-  // 🔐 TODAS las rutas protegidas por defecto
   { 
     path: '/home', 
     component: Home, 
@@ -77,7 +76,7 @@ const routes = [
     } 
   },
 
-  // 🔐 CUALQUIER otra ruta no definida también va a signin
+  
   { 
     path: '/:pathMatch(.*)*', 
     redirect: '/signin',
