@@ -76,7 +76,7 @@ const routes = [
     } 
   },
 
-  
+  // 🔐 CUALQUIER otra ruta no definida también va a signin
   { 
     path: '/:pathMatch(.*)*', 
     redirect: '/signin',
@@ -89,7 +89,7 @@ const router = createRouter({
   routes
 })
 
-// 🔐 GUARDIA DE NAVEGACIÓN MÁS ROBUSTO
+
 router.beforeEach(async (to, from, next) => {
   console.log('🛡️ Router Guard - De:', from.path, 'A:', to.path)
   

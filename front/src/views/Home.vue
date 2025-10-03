@@ -1,6 +1,56 @@
 <template>
-  <transition name="fade">
-    <div class="home-container">
+  <div class="home-layout">
+    <!-- Barra lateral -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h3>StudentGest</h3>
+        <p>Acceso rápido</p>
+      </div>
+      <nav class="sidebar-nav">
+        <router-link to="/features" class="nav-item">
+          <div class="nav-icon">🚀</div>
+          <div class="nav-content">
+            <strong>Features</strong>
+            <span>Características principales</span>
+          </div>
+        </router-link>
+        
+        <router-link to="/info" class="nav-item">
+          <div class="nav-icon">ℹ️</div>
+          <div class="nav-content">
+            <strong>Info</strong>
+            <span>Información detallada</span>
+          </div>
+        </router-link>
+        
+        <router-link to="/contact" class="nav-item">
+          <div class="nav-icon">📞</div>
+          <div class="nav-content">
+            <strong>Contact</strong>
+            <span>Contáctanos</span>
+          </div>
+        </router-link>
+
+        <router-link to="/foro" class="nav-item">
+          <div class="nav-icon">💬</div>
+          <div class="nav-content">
+            <strong>Foro</strong>
+            <span>Comunidad</span>
+          </div>
+        </router-link>
+
+        <router-link to="/pricing" class="nav-item">
+          <div class="nav-icon">💰</div>
+          <div class="nav-content">
+            <strong>Pricing</strong>
+            <span>Planes y precios</span>
+          </div>
+        </router-link>
+      </nav>
+    </aside>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
       <!-- Hero de inicio -->
       <section class="home-hero">
         <div class="hero-content">
@@ -13,11 +63,23 @@
         </div>
       </section>
 
-      <!-- Contadores animados -->
-      <section ref="statsSection" class="stats">
-        <div class="stat" v-for="s in stats" :key="s.key">
-          <strong>{{ formatStat(s) }}</strong>
-          <span>{{ s.label }}</span>
+      <!-- Contadores estáticos -->
+      <section class="stats">
+        <div class="stat">
+          <strong>250+</strong>
+          <span>Instituciones</span>
+        </div>
+        <div class="stat">
+          <strong>120k</strong>
+          <span>Estudiantes</span>
+        </div>
+        <div class="stat">
+          <strong>99.95%</strong>
+          <span>Uptime</span>
+        </div>
+        <div class="stat">
+          <strong>4.8/5</strong>
+          <span>Satisfacción</span>
         </div>
       </section>
 
@@ -45,15 +107,15 @@
       <!-- Testimonios -->
       <section class="testimonials">
         <article class="tcard">
-          <p>“StudentGest nos permitió optimizar procesos y mejorar la comunicación con los padres.”</p>
+          <p>"StudentGest nos permitió optimizar procesos y mejorar la comunicación con los padres."</p>
           <span>- Directora, UCB</span>
         </article>
         <article class="tcard">
-          <p>“Los reportes son claros y el control de asistencias es inmediato.”</p>
+          <p>"Los reportes son claros y el control de asistencias es inmediato."</p>
           <span>- Coordinador Académico, UPB</span>
         </article>
         <article class="tcard">
-          <p>“Escalable y seguro, ideal para nuestra red de colegios.”</p>
+          <p>"Escalable y seguro, ideal para nuestra red de colegios."</p>
           <span>- CTO, Red Educativa</span>
         </article>
       </section>
@@ -74,138 +136,111 @@
           <router-link to="/contact" class="btn-outline">Hablar con ventas</router-link>
         </div>
       </section>
-
-      <!-- Botón de cierre de sesión (Logout) -->
-      <button v-if="username" @click="handleLogout" class="btn-logout">
-        Cerrar sesión
-      </button>
-    </div>
-  </transition>
+    </main>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { supabase } from '../supabase'
-
-const router = useRouter()
-const username = ref('')
-const tenant = ref('')
-const usuariosUcb = ref([])
-const usuariosUpb = ref([])
-
-function getTenantFromEmail(email) {
-  if (email.endsWith('@ucb.edu.bo')) return 'tenant_ucb'
-  if (email.endsWith('@upb.edu.bo')) return 'tenant_upb'
-  if (email.endsWith('@gmail.com')) return 'tenant_gmail'
-  return null
-}
-
-// Contadores
-const statsSection = ref(null)
-const stats = ref([
-  { key: 'institutions', label: 'Instituciones', target: 250, value: 0, suffix: '+' },
-  { key: 'students',     label: 'Estudiantes',   target: 120000, value: 0 },
-  { key: 'uptime',       label: 'Uptime',        target: 99.95, value: 0, decimals: 2, suffix: '%' },
-  { key: 'rating',       label: 'Satisfacción',  target: 4.8, value: 0, decimals: 1, suffix: '/5' },
-])
-
-let observer
-const rafIds = new Map()
-
-function animateCount(stat, duration = 1200) {
-  const start = performance.now()
-  const from = 0
-  const to = stat.target
-  const decimals = stat.decimals ?? 0
-  const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3)
-  const tick = (now) => {
-    const progress = Math.min((now - start) / duration, 1)
-    const eased = easeOutCubic(progress)
-    const current = from + (to - from) * eased
-    stat.value = Number(current.toFixed(decimals))
-    if (progress < 1) {
-      const id = requestAnimationFrame(tick)
-      rafIds.set(stat.key, id)
-    }
-  }
-  const id = requestAnimationFrame(tick)
-  rafIds.set(stat.key, id)
-}
-
-function startStats() {
-  stats.value.forEach((s) => animateCount(s))
-}
-
-function formatStat(stat) {
-  const v = stat.value ?? 0
-  if (stat.key === 'students') return v >= 1000 ? `${Math.round(v / 1000)}k` : `${Math.round(v)}`
-  if (stat.decimals != null) return `${v.toFixed(stat.decimals)}${stat.suffix ?? ''}`
-  return `${Math.round(v)}${stat.suffix ?? ''}`
-}
-
-// Sesión (modo invitado si no hay usuario)
-onMounted(async () => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.user) {
-      username.value = session.user.email
-      tenant.value = getTenantFromEmail(username.value)
-
-      // 🔹 Obtener usuarios de tenant_ucb
-      const { data: ucb, error: errUcb } = await supabase.rpc('get_usuarios_ucb')
-      if (errUcb) console.error('Error consultando tenant_ucb:', errUcb)
-      else usuariosUcb.value = ucb
-
-      // 🔹 Obtener usuarios de tenant_upb
-      const { data: upb, error: errUpb } = await supabase.rpc('get_usuarios_upb')
-      if (errUpb) console.error('Error consultando tenant_upb:', errUpb)
-      else usuariosUpb.value = upb
-
-      const { data: gmail, error: errGmail } = await supabase.rpc('get_usuarios_gmail')
-      if (errGmail) console.error('Error consultando tenant_gmail:', errGmail)
-      else console.log('Usuarios en tenant_gmail:', gmail)
-    }
-  } catch (e) {
-    console.error('Error al obtener sesión:', e)
-  }
-
-  await nextTick()
-  if ('IntersectionObserver' in window && statsSection.value) {
-    let triggered = false
-    observer = new IntersectionObserver((entries) => {
-      if (!triggered && entries.some(e => e.isIntersecting)) {
-        triggered = true
-        startStats()
-        observer.disconnect()
-      }
-    }, { threshold: 0.3 })
-    observer.observe(statsSection.value)
-  } else {
-    startStats()
-  }
-})
-
-onBeforeUnmount(() => {
-  if (observer) observer.disconnect()
-  rafIds.forEach((id) => cancelAnimationFrame(id))
-})
-
-async function handleLogout() {
-  try {
-    await supabase.auth.signOut()
-    username.value = ''
-    router.push('/signin')
-  } catch (e) {
-    console.error('Error al cerrar sesión:', e)
-  }
-}
+// Sin lógica - Solo contenido estático
 </script>
 
 <style scoped>
-.home-container {
+.home-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 100vh;
+  gap: 0;
+}
+
+/* Barra lateral */
+.sidebar {
+  background: linear-gradient(135deg, #2a4dd0 0%, #1e40af 100%);
+  color: white;
+  padding: 2rem 1.5rem;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+}
+
+.sidebar-header {
   text-align: center;
-  margin-top: 0.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.sidebar-header h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-header p {
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  text-decoration: none;
+  color: white;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.3);
+  transform: translateX(5px);
+}
+
+.nav-item.router-link-active {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.4);
+}
+
+.nav-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+}
+
+.nav-content {
+  flex: 1;
+}
+
+.nav-content strong {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.nav-content span {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+/* Contenido principal */
+.main-content {
+  padding: 2rem;
+  background: #f8fafc;
+  overflow-y: auto;
 }
 
 /* Hero */
@@ -213,8 +248,8 @@ async function handleLogout() {
   position: relative;
   border-radius: 16px;
   padding: 3rem 1rem;
-  margin: 1rem auto 0;
-  max-width: 1100px;
+  margin: 0 auto 2rem;
+  max-width: 100%;
   overflow: hidden;
   background:
     linear-gradient(135deg, rgba(42,77,208,0.95), rgba(59,130,246,0.9)),
@@ -235,36 +270,24 @@ async function handleLogout() {
 /* Info */
 .info-negocio {
   margin: 2rem auto;
-  max-width: 900px;
+  max-width: 100%;
   background: #fff;
   border-radius: 1rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   padding: 1.5rem;
   text-align: left;
-  animation: slideIn 1s;
 }
 .info-negocio h2 { color: #2a4dd0; margin-bottom: 0.5rem; }
 .info-negocio ul { margin-top: 1rem; padding-left: 1.2rem; }
 .info-negocio li { margin-bottom: 0.5rem; }
-
-/* Logout */
-.btn-logout {
-  margin-top: 2rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
 
 /* Stats */
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
-  max-width: 1100px;
-  margin: 1.5rem auto 0;
+  max-width: 100%;
+  margin: 1.5rem auto 2rem;
 }
 .stat {
   background: #fff;
@@ -272,7 +295,6 @@ async function handleLogout() {
   padding: 1rem;
   text-align:center;
   box-shadow: 0 2px 10px rgba(0,0,0,.06);
-  animation: fadeUp .6s ease both;
 }
 .stat strong { display:block; font-size: 1.8rem; line-height:1; color:#2a4dd0; }
 .stat span { color:#555; }
@@ -282,7 +304,7 @@ async function handleLogout() {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  max-width: 1100px;
+  max-width: 100%;
   margin: 2rem auto;
 }
 .gallery img {
@@ -291,7 +313,6 @@ async function handleLogout() {
   object-fit: cover;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,.06);
-  animation: zoomIn .5s ease both;
 }
 
 /* Testimonials */
@@ -299,7 +320,7 @@ async function handleLogout() {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  max-width: 1100px;
+  max-width: 100%;
   margin: 2rem auto;
 }
 .tcard {
@@ -307,7 +328,6 @@ async function handleLogout() {
   border-radius: 12px;
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0,0,0,.06);
-  animation: fadeUp .6s ease both;
 }
 .tcard p { margin: 0 0 .5rem; }
 .tcard span { color: #666; }
@@ -337,7 +357,7 @@ async function handleLogout() {
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,.06);
-  max-width: 900px;
+  max-width: 100%;
 }
 .cta h3 { margin-bottom: .75rem; }
 .cta-actions { display: flex; gap: .75rem; justify-content: center; }
@@ -345,22 +365,37 @@ async function handleLogout() {
 .cta .btn-primary { background: #2a4dd0; color: #fff; }
 .cta .btn-outline { background: #fff; color: #2a4dd0; border: 2px solid #2a4dd0; }
 
-/* Animations */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.7s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-@keyframes slideIn { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes zoomIn { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
-
 /* Responsive */
 @media (max-width: 900px) {
+  .home-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    height: auto;
+    position: relative;
+    padding: 1rem;
+  }
+  
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+  }
+  
+  .nav-item {
+    min-width: 200px;
+  }
+  
   .stats { grid-template-columns: repeat(2, 1fr); }
   .testimonials { grid-template-columns: repeat(2, 1fr); }
   .gallery { grid-template-columns: repeat(2, 1fr); }
 }
+
 @media (max-width: 600px) {
   .home-hero { padding: 2rem 1rem; }
   .hero-content h1 { font-size: 1.5rem; }
   .stats, .testimonials, .gallery { grid-template-columns: 1fr; }
+  .main-content { padding: 1rem; }
 }
 </style>
