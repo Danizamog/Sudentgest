@@ -32,6 +32,7 @@ const routes = [
     meta: { requiresAuth: false } 
   },
 
+  // Rutas protegidas
   { 
     path: '/home', 
     component: Home, 
@@ -76,7 +77,7 @@ const routes = [
     } 
   },
 
-  // 🔐 CUALQUIER otra ruta no definida también va a signin
+  // Catch all - Redirige a signin
   { 
     path: '/:pathMatch(.*)*', 
     redirect: '/signin',
@@ -89,28 +90,37 @@ const router = createRouter({
   routes
 })
 
-
+// 🔐 GUARDIA DE RUTAS CORREGIDA
 router.beforeEach(async (to, from, next) => {
   console.log('🛡️ Router Guard - De:', from.path, 'A:', to.path)
   
   try {
-    // Verificar autenticación para rutas protegidas
+    // Obtener sesión actual - FORZAR ACTUALIZACIÓN
+    const { data: { session }, error } = await supabase.auth.getSession()
+    const token = localStorage.getItem('token')
+    
+    // Verificar si hay sesión válida
+    const isAuthenticated = !!(session && token && !error)
+    
+    console.log('🔐 Estado autenticación:', { 
+      hasSession: !!session, 
+      hasToken: !!token, 
+      isAuthenticated 
+    })
+
+    // RUTAS PROTEGIDAS
     if (to.meta.requiresAuth) {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = localStorage.getItem('token')
-      
-      console.log('🔐 Sesión:', !!session, 'Token:', !!token)
-      
-      // Si NO hay sesión activa, redirigir a signin
-      if (!session || !token) {
-        console.warn('🚫 Acceso denegado - No autenticado')
-        await cleanupAuth()
+      if (!isAuthenticated) {
+        console.warn('🚫 Acceso denegado - No autenticado, redirigiendo a signin')
+        // Limpiar cache y redirigir
+        userRoleCache = null
+        localStorage.removeItem('token')
         return next('/signin')
       }
-      
-      // Si requiere rol director, verificar
+
+      // VERIFICACIÓN DE ROL DIRECTOR
       if (to.meta.requiresDirector) {
-        const userRole = await checkUserRole()
+        const userRole = await getUserRole()
         console.log('👤 Rol del usuario:', userRole)
         
         if (userRole !== 'director') {
@@ -119,20 +129,15 @@ router.beforeEach(async (to, from, next) => {
         }
       }
       
-      console.log('✅ Acceso permitido')
+      console.log('✅ Acceso permitido a ruta protegida')
       next()
     } 
-    // Rutas públicas (signin, callback)
+    // RUTAS PÚBLICAS (como /signin)
     else {
       // Si ya está autenticado y va a signin, redirigir a home
-      if (to.path === '/signin') {
-        const { data: { session } } = await supabase.auth.getSession()
-        const token = localStorage.getItem('token')
-        
-        if (session && token) {
-          console.log('🔐 Ya autenticado, redirigiendo a home')
-          return next('/home')
-        }
+      if ((to.path === '/signin' || to.path === '/') && isAuthenticated) {
+        console.log('🔐 Ya autenticado, redirigiendo a home desde:', to.path)
+        return next('/home')
       }
       
       console.log('🌐 Ruta pública - Acceso permitido')
@@ -141,24 +146,18 @@ router.beforeEach(async (to, from, next) => {
     
   } catch (error) {
     console.error('💥 Error en guardia de ruta:', error)
-    await cleanupAuth()
+    // En caso de error, limpiar y redirigir a signin
+    userRoleCache = null
+    localStorage.removeItem('token')
     next('/signin')
   }
 })
 
-// 🔧 FUNCIÓN: Limpiar autenticación
-async function cleanupAuth() {
-  try {
-    localStorage.removeItem('token')
-    await supabase.auth.signOut()
-    console.log('🧹 Autenticación limpiada')
-  } catch (error) {
-    console.error('Error limpiando auth:', error)
-  }
-}
-
-// 🔧 FUNCIÓN: Verificar rol del usuario
-async function checkUserRole() {
+// 🔧 FUNCIÓN: Obtener rol del usuario (cacheado)
+let userRoleCache = null
+async function getUserRole() {
+  if (userRoleCache) return userRoleCache
+  
   try {
     const token = localStorage.getItem('token')
     if (!token) throw new Error('No token')
@@ -177,19 +176,21 @@ async function checkUserRole() {
     
     if (response.ok) {
       const profile = await response.json()
-      return profile.rol || 'estudiante'
+      userRoleCache = profile.rol || 'estudiante'
+      return userRoleCache
     } else {
       throw new Error('Error del servidor')
     }
   } catch (error) {
     console.error('❌ Error verificando rol:', error)
-    throw error
+    userRoleCache = 'estudiante' // Fallback seguro
+    return userRoleCache
   }
 }
 
-// 🚨 Manejar errores globales del router
-router.onError((error) => {
-  console.error('🚨 Error de navegación:', error)
+// 🔄 Limpiar cache cuando cambie la autenticación
+supabase.auth.onAuthStateChange(() => {
+  userRoleCache = null
 })
 
 export default router

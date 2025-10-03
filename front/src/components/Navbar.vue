@@ -41,7 +41,7 @@
               class="nav-link admin-link"
             >
               <span class="nav-icon">🗃️</span>
-              Base de Datos
+              Roles
             </router-link>
           </div>
 
@@ -272,10 +272,9 @@ async function handleLogout() {
     
     console.log('🔹 Navbar - Sesión cerrada exitosamente')
     
-    // 4. NO redirigir automáticamente - el router guard se encargará
-    // El usuario permanecerá en la página actual pero sin navbar
-    // y el router guard lo redirigirá si intenta acceder a rutas protegidas
-    
+    // 4. Redirigir al signin manualmente
+    router.push('/signin')
+
   } catch (error) {
     console.error('Error completo al cerrar sesión:', error)
     
@@ -283,6 +282,9 @@ async function handleLogout() {
     localStorage.removeItem('token')
     isAuthenticated.value = false
     userProfile.value = null
+    
+    // Redirigir incluso con error
+    router.push('/signin')
     
   } finally {
     loading.value = false
