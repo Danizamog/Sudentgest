@@ -29,3 +29,7 @@ services:
       - "5009:8080"
     env_file:
       - ./back/Roles/.env
+  forunm:
+    build: ./back/Forum
+    ports:
+      - "5010:80"

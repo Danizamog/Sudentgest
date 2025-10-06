@@ -1,0 +1,12 @@
+{
+  "xxConnectionStrings": {
+  x  "xzDefaultConnection": "Host=aws-1-us-east-2.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.nnqbpvbcdwcodnraxXXxdhye;Password=studentgest123;SSL Mode=Require;Trust Server Certificate=true"
+  },xx
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
