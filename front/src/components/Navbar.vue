@@ -26,7 +26,7 @@
             <router-link to="/courses" class="nav-link" >Cursos</router-link>
             <router-link to="/my-courses" class="nav-link">Mis Cursos</router-link>
             <router-link 
-              v-if="userProfile?.rol === 'director'" 
+              v-if="userProfile?.rol === 'Director'" 
               to="/base" 
               class="nav-link admin-link"
             >
@@ -67,7 +67,7 @@
               
 
               <router-link 
-                v-if="userProfile?.rol === 'director'" 
+                v-if="userProfile?.rol === 'Director'" 
                 to="/base" 
                 class="nav-link admin-link"
                 @click="toggleMobileMenu"
@@ -289,7 +289,7 @@ onMounted(() => {
   border: 1px solid;
 }
 
-.user-role.director {
+.user-role.Director {
   background: #10b981;
   color: white;
   border-color: #10b981;
@@ -299,6 +299,11 @@ onMounted(() => {
   background: #3b82f6;
   color: white;
   border-color: #3b82f6;
+}
+.user-role.profesor {
+  background: #f68f3b;
+  color: white;
+  border-color: #f68f3b;
 }
 
 .site-nav {
