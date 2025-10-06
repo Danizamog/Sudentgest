@@ -12,6 +12,9 @@ import Info from './views/info.vue'
 import Contact from './views/Contact.vue'
 import Nosotros from './views/Nosotros.vue'
 import Base from './views/BD.vue'
+import Courses from './views/Courses.vue'
+import MyCourses from './views/MyCourses.vue'
+import CourseDetail from './views/CourseDetail.vue'
 
 const routes = [
   { 
@@ -68,6 +71,21 @@ const routes = [
       requiresAuth: true,
       requiresDirector: true 
     } 
+  },
+  { 
+    path: '/courses', 
+    component: Courses, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/my-courses', 
+    component: MyCourses, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/courses/:id', 
+    component: CourseDetail, 
+    meta: { requiresAuth: true } 
   },
   { 
     path: '/:pathMatch(.*)*', 

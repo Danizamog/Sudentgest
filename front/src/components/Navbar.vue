@@ -23,6 +23,8 @@
             <router-link to="/foro" class="nav-link">Foro</router-link>
             <router-link to="/pricing" class="nav-link">Precios</router-link>
             <router-link to="/nosotros" class="nav-link">Nosotros</router-link>
+            <router-link to="/courses" class="nav-link" >Cursos</router-link>
+            <router-link to="/my-courses" class="nav-link">Mis Cursos</router-link>
             <router-link 
               v-if="userProfile?.rol === 'director'" 
               to="/base" 
@@ -60,6 +62,10 @@
               <router-link to="/foro" class="nav-link" @click="toggleMobileMenu">Foro</router-link>
               <router-link to="/pricing" class="nav-link" @click="toggleMobileMenu">Precios</router-link>
               <router-link to="/nosotros" class="nav-link" @click="toggleMobileMenu">Nosotros</router-link>
+              <router-link to="/courses" class="nav-link" @click="toggleMobileMenu">Cursos</router-link>
+              <router-link to="/my-courses" class="nav-link" @click="toggleMobileMenu">Mis Cursos</router-link>
+              
+
               <router-link 
                 v-if="userProfile?.rol === 'director'" 
                 to="/base" 
