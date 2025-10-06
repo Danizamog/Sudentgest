@@ -1,33 +1,29 @@
 <template>
   <div class="bd-container">
-    <h1>Gestión de Usuarios - Base de Datos</h1>
+    <h1>Gestión de Usuarios - {{ tenantName }}</h1>
     
+    <div class="user-info">
+      <p><strong>Usuario:</strong> {{ currentUserEmail }}</p>
+      <p><strong>Tenant:</strong> {{ tenantName }}</p>
+    </div>
+
     <div class="controls">
-      <button @click="cargarTodasTablas" class="btn btn-primary">
-        Cargar Todas las Tablas
-      </button>
-      <button @click="cargarUcb" class="btn btn-secondary">
-        Solo UCB
-      </button>
-      <button @click="cargarUpb" class="btn btn-secondary">
-        Solo UPB
-      </button>
-      <button @click="cargarGmail" class="btn btn-secondary">
-        Solo Gmail
+      <button @click="cargarUsuarios" class="btn btn-primary" :disabled="cargando">
+        {{ cargando ? 'Cargando...' : 'Actualizar Lista' }}
       </button>
     </div>
 
     <div v-if="cargando" class="loading">
-      Cargando datos...
+      Cargando usuarios de {{ tenantName }}...
     </div>
 
     <div v-if="error" class="error">
       {{ error }}
     </div>
 
-    <!-- Tabla UCB -->
-    <div v-if="usuariosUcb.length > 0" class="table-section">
-      <h2>Usuarios UCB ({{ usuariosUcb.length }})</h2>
+    <!-- Tabla del tenant del usuario -->
+    <div v-if="usuarios.length > 0" class="table-section">
+      <h2>Usuarios de {{ tenantName }} ({{ usuarios.length }})</h2>
       <table class="data-table">
         <thead>
           <tr>
@@ -40,20 +36,20 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="usuario in usuariosUcb" :key="'ucb-' + usuario.id">
+          <tr v-for="usuario in usuarios" :key="usuario.id">
             <td>{{ usuario.id }}</td>
             <td>{{ usuario.nombre || 'N/A' }}</td>
             <td>{{ usuario.apellido || 'N/A' }}</td>
             <td>{{ usuario.email }}</td>
             <td>
-              <select :value="usuario.rol" @change="actualizarRol('ucb', usuario.id, $event.target.value)">
+              <select :value="usuario.rol" @change="actualizarRol(usuario.id, $event.target.value)">
                 <option value="Estudiante">Estudiante</option>
                 <option value="Profesor">Profesor</option>
                 <option value="Director">Director</option>
               </select>
             </td>
             <td>
-              <button @click="confirmarActualizacion('ucb', usuario.id, usuario.rol)" 
+              <button @click="confirmarActualizacion(usuario.id, usuario.rol)" 
                       class="btn btn-small">
                 Actualizar
               </button>
@@ -63,166 +59,97 @@
       </table>
     </div>
 
-    <!-- Repite la misma estructura para UPB y Gmail -->
-    <!-- Tabla UPB -->
-    <div v-if="usuariosUpb.length > 0" class="table-section">
-      <h2>Usuarios UPB ({{ usuariosUpb.length }})</h2>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>Apellido</th>
-            <th>Email</th>
-            <th>Rol</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="usuario in usuariosUpb" :key="'upb-' + usuario.id">
-            <td>{{ usuario.id }}</td>
-            <td>{{ usuario.nombre || 'N/A' }}</td>
-            <td>{{ usuario.apellido || 'N/A' }}</td>
-            <td>{{ usuario.email }}</td>
-            <td>
-              <select :value="usuario.rol" @change="actualizarRol('upb', usuario.id, $event.target.value)">
-                <option value="Estudiante">Estudiante</option>
-                <option value="Profesor">Profesor</option>
-                <option value="Director">Director</option>
-              </select>
-            </td>
-            <td>
-              <button @click="confirmarActualizacion('upb', usuario.id, usuario.rol)" 
-                      class="btn btn-small">
-                Actualizar
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Tabla Gmail -->
-    <div v-if="usuariosGmail.length > 0" class="table-section">
-      <h2>Usuarios Gmail ({{ usuariosGmail.length }})</h2>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>Apellido</th>
-            <th>Email</th>
-            <th>Rol</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="usuario in usuariosGmail" :key="'gmail-' + usuario.id">
-            <td>{{ usuario.id }}</td>
-            <td>{{ usuario.nombre || 'N/A' }}</td>
-            <td>{{ usuario.apellido || 'N/A' }}</td>
-            <td>{{ usuario.email }}</td>
-            <td>
-              <select :value="usuario.rol" @change="actualizarRol('gmail', usuario.id, $event.target.value)">
-                <option value="Estudiante">Estudiante</option>
-                <option value="Profesor">Profesor</option>
-                <option value="Director">Director</option>
-              </select>
-            </td>
-            <td>
-              <button @click="confirmarActualizacion('gmail', usuario.id, usuario.rol)" 
-                      class="btn btn-small">
-                Actualizar
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div v-if="!cargando && usuariosUcb.length === 0 && usuariosUpb.length === 0 && usuariosGmail.length === 0" 
-         class="no-data">
-      No hay datos para mostrar. Haz clic en uno de los botones para cargar la información.
+    <div v-if="!cargando && usuarios.length === 0" class="no-data">
+      No hay usuarios registrados en {{ tenantName }}.
     </div>
   </div>
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { supabase } from '../supabase'
 
 export default {
   name: 'BDView',
   setup() {
-    const usuariosUcb = ref([])
-    const usuariosUpb = ref([])
-    const usuariosGmail = ref([])
+    const usuarios = ref([])
+    const currentUserEmail = ref('')
+    const tenantName = ref('')
     const cargando = ref(false)
     const error = ref('')
 
     const API_BASE_URL = 'http://localhost:5009/api/usuarios'
 
-    const cargarTodasTablas = async () => {
-      await cargarDatos(`${API_BASE_URL}/todas-tablas`, 'todas')
+    // Función para obtener tenant del email (igual que el backend)
+    const getTenantFromEmail = (email) => {
+      if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
+      if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
+      if (email.endsWith('@gmail.com')) return 'gmail.com'
+      return 'unknown'
     }
 
-    const cargarUcb = async () => {
-      await cargarDatos(`${API_BASE_URL}/ucb`, 'ucb')
+    // Obtener nombre amigable del tenant
+    const getTenantDisplayName = (tenant) => {
+      switch (tenant) {
+        case 'ucb.edu.bo': return 'UCB'
+        case 'upb.edu.bo': return 'UPB'
+        case 'gmail.com': return 'Gmail'
+        default: return tenant
+      }
     }
 
-    const cargarUpb = async () => {
-      await cargarDatos(`${API_BASE_URL}/upb`, 'upb')
-    }
-
-    const cargarGmail = async () => {
-      await cargarDatos(`${API_BASE_URL}/gmail`, 'gmail')
-    }
-
-    const cargarDatos = async (url, tipo) => {
+    const cargarUsuarios = async () => {
       cargando.value = true
       error.value = ''
       
       try {
-        const response = await fetch(url)
+        // Obtener el usuario actual de Supabase
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user?.email) {
+          throw new Error('No hay usuario autenticado')
+        }
+
+        currentUserEmail.value = session.user.email
+        const tenant = getTenantFromEmail(session.user.email)
+        tenantName.value = getTenantDisplayName(tenant)
+
+        // Llamar al backend con el email del usuario en los headers
+        const response = await fetch(`${API_BASE_URL}/mi-tenant`, {
+          headers: {
+            'X-User-Email': session.user.email
+          }
+        })
         
         if (!response.ok) {
           throw new Error(`Error HTTP: ${response.status}`)
         }
         
         const data = await response.json()
+        usuarios.value = data.usuarios || []
         
-        if (tipo === 'todas') {
-          usuariosUcb.value = data.ucbUsuarios || []
-          usuariosUpb.value = data.upbUsuarios || []
-          usuariosGmail.value = data.gmailUsuarios || []
-        } else if (tipo === 'ucb') {
-          usuariosUcb.value = data
-          usuariosUpb.value = []
-          usuariosGmail.value = []
-        } else if (tipo === 'upb') {
-          usuariosUpb.value = data
-          usuariosUcb.value = []
-          usuariosGmail.value = []
-        } else if (tipo === 'gmail') {
-          usuariosGmail.value = data
-          usuariosUcb.value = []
-          usuariosUpb.value = []
-        }
+        console.log(`✅ Cargados ${usuarios.value.length} usuarios de ${tenantName.value}`)
       } catch (err) {
-        error.value = `Error al cargar datos: ${err.message}`
+        error.value = `Error al cargar usuarios: ${err.message}`
         console.error('Error:', err)
       } finally {
         cargando.value = false
       }
     }
 
-    const actualizarRol = async (tabla, usuarioId, nuevoRol) => {
+    const actualizarRol = async (usuarioId, nuevoRol) => {
       try {
-        console.log(`Actualizando rol: ${tabla}, usuario: ${usuarioId}, nuevo rol: ${nuevoRol}`)
+        console.log(`Actualizando rol del usuario ${usuarioId} a ${nuevoRol}`)
         
-        const response = await fetch(`${API_BASE_URL}/${tabla}/${usuarioId}/rol`, {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user?.email) {
+          throw new Error('No hay usuario autenticado')
+        }
+
+        const response = await fetch(`${API_BASE_URL}/${usuarioId}/rol`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'X-User-Email': session.user.email
           },
           body: JSON.stringify({ rol: nuevoRol })
         })
@@ -234,35 +161,37 @@ export default {
         const resultado = await response.json()
         console.log('Rol actualizado:', resultado)
         
-        // Recargar los datos para reflejar el cambio
-        await cargarTodasTablas()
+        // Recargar la lista
+        await cargarUsuarios()
         
+        alert(`Rol actualizado correctamente para el usuario ${usuarioId}`)
       } catch (err) {
         console.error('Error actualizando rol:', err)
         error.value = `Error al actualizar rol: ${err.message}`
+        alert('Error al actualizar el rol')
       }
     }
 
-    const confirmarActualizacion = (tabla, usuarioId, rolActual) => {
-      if (confirm(`¿Estás seguro de que quieres actualizar el rol del usuario ${usuarioId} en ${tabla}?`)) {
-        // Encuentra el select y obtiene el valor actual
-        const select = document.querySelector(`select[data-tabla="${tabla}"][data-usuario="${usuarioId}"]`)
+    const confirmarActualizacion = (usuarioId, rolActual) => {
+      if (confirm(`¿Estás seguro de que quieres actualizar el rol del usuario ${usuarioId}?`)) {
+        const select = document.querySelector(`select[data-usuario="${usuarioId}"]`)
         if (select) {
-          actualizarRol(tabla, usuarioId, select.value)
+          actualizarRol(usuarioId, select.value)
         }
       }
     }
 
+    onMounted(() => {
+      cargarUsuarios()
+    })
+
     return {
-      usuariosUcb,
-      usuariosUpb,
-      usuariosGmail,
+      usuarios,
+      currentUserEmail,
+      tenantName,
       cargando,
       error,
-      cargarTodasTablas,
-      cargarUcb,
-      cargarUpb,
-      cargarGmail,
+      cargarUsuarios,
       actualizarRol,
       confirmarActualizacion
     }
@@ -277,16 +206,33 @@ export default {
   margin: 0 auto;
 }
 
+.user-info {
+  background-color: #e8f5e8;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #4caf50;
+}
+
+.user-info p {
+  margin: 5px 0;
+  color: #2e7d32;
+}
+
 .controls {
   margin-bottom: 20px;
 }
 
 .btn {
   padding: 10px 15px;
-  margin-right: 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-primary {
@@ -294,12 +240,14 @@ export default {
   color: white;
 }
 
-.btn-secondary {
-  background-color: #6c757d;
+.btn-small {
+  padding: 5px 10px;
+  font-size: 0.8em;
+  background-color: #28a745;
   color: white;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   opacity: 0.8;
 }
 
@@ -355,10 +303,6 @@ export default {
 
 .data-table tr:hover {
   background-color: #f5f5f5;
-}
-.btn-small {
-  padding: 5px 10px;
-  font-size: 0.8em;
 }
 
 select {
