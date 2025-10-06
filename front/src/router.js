@@ -159,7 +159,7 @@ router.beforeEach(async (to, from, next) => {
       // Verificación de rol director
       if (to.meta.requiresDirector) {
         const userRole = await getUserRole()
-        if (userRole !== 'director') {
+        if (userRole !== 'Director') {
           return next('/home')
         }
       }
