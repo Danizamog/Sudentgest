@@ -250,6 +250,7 @@ app.MapGet("/test", () =>
     return Results.Ok(new { message = "Backend funcionando correctamente", status = "OK" });
 });
 // Endpoint para crear usuario en el tenant actual
+// Endpoint para crear usuario en el tenant actual
 app.MapPost("/api/crear", async (HttpContext context, [FromBody] CrearUsuarioRequest request, [FromServices] Client supabase) =>
 {
     try
@@ -290,10 +291,19 @@ app.MapPost("/api/crear", async (HttpContext context, [FromBody] CrearUsuarioReq
                 var responseUcb = await supabase.From<UsuarioUcb>().Insert(nuevoUcb);
                 if (responseUcb.Models?.Count > 0)
                 {
+                    var usuarioCreado = responseUcb.Models[0];
+                    // Devolver un DTO simple en lugar del modelo completo
                     return Results.Ok(new
                     {
                         mensaje = "Usuario creado correctamente",
-                        usuario = responseUcb.Models[0]
+                        usuario = new
+                        {
+                            Id = usuarioCreado.Id,
+                            Nombre = usuarioCreado.Nombre,
+                            Apellido = usuarioCreado.Apellido,
+                            Email = usuarioCreado.Email,
+                            Rol = usuarioCreado.Rol
+                        }
                     });
                 }
                 break;
@@ -309,10 +319,18 @@ app.MapPost("/api/crear", async (HttpContext context, [FromBody] CrearUsuarioReq
                 var responseUpb = await supabase.From<UsuarioUpb>().Insert(nuevoUpb);
                 if (responseUpb.Models?.Count > 0)
                 {
+                    var usuarioCreado = responseUpb.Models[0];
                     return Results.Ok(new
                     {
                         mensaje = "Usuario creado correctamente",
-                        usuario = responseUpb.Models[0]
+                        usuario = new
+                        {
+                            Id = usuarioCreado.Id,
+                            Nombre = usuarioCreado.Nombre,
+                            Apellido = usuarioCreado.Apellido,
+                            Email = usuarioCreado.Email,
+                            Rol = usuarioCreado.Rol
+                        }
                     });
                 }
                 break;
@@ -328,10 +346,18 @@ app.MapPost("/api/crear", async (HttpContext context, [FromBody] CrearUsuarioReq
                 var responseGmail = await supabase.From<UsuarioGmail>().Insert(nuevoGmail);
                 if (responseGmail.Models?.Count > 0)
                 {
+                    var usuarioCreado = responseGmail.Models[0];
                     return Results.Ok(new
                     {
                         mensaje = "Usuario creado correctamente",
-                        usuario = responseGmail.Models[0]
+                        usuario = new
+                        {
+                            Id = usuarioCreado.Id,
+                            Nombre = usuarioCreado.Nombre,
+                            Apellido = usuarioCreado.Apellido,
+                            Email = usuarioCreado.Email,
+                            Rol = usuarioCreado.Rol
+                        }
                     });
                 }
                 break;

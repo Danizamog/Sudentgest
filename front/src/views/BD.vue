@@ -391,7 +391,7 @@ export default {
       }
     }
 
-    const crearUsuario = async () => {
+const crearUsuario = async () => {
   if (!nuevoUsuario.value.nombre || !nuevoUsuario.value.apellido || !nuevoUsuario.value.email) {
     mostrarAlerta('Todos los campos son requeridos', 'error')
     return
@@ -411,7 +411,6 @@ export default {
       throw new Error('No hay usuario autenticado')
     }
 
-    // ✅ CORREGIDO: Ahora usa /api/crear
     const response = await fetch(`http://localhost:5009/api/crear`, {
       method: 'POST',
       headers: {
@@ -423,12 +422,13 @@ export default {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Error response:', errorText)
       throw new Error(`Error HTTP: ${response.status} - ${errorText}`)
     }
 
     const resultado = await response.json()
     mostrarAlerta('Usuario creado correctamente', 'success')
+    
+    // Cerrar modal y recargar usuarios
     cerrarModal()
     await cargarUsuarios()
     
@@ -439,15 +439,17 @@ export default {
     creandoUsuario.value = false
   }
 }
-    const cerrarModal = () => {
-      mostrarModalCrear.value = false
-      nuevoUsuario.value = {
-        nombre: '',
-        apellido: '',
-        email: '',
-        rol: 'Estudiante'
-      }
-    }
+
+const cerrarModal = () => {
+  mostrarModalCrear.value = false
+  // Resetear el formulario
+  nuevoUsuario.value = {
+    nombre: '',
+    apellido: '',
+    email: '',
+    rol: 'Estudiante'
+  }
+}
 
     onMounted(() => {
       cargarUsuarios()
