@@ -198,7 +198,7 @@ async function checkPermissions() {
 
     if (response.ok) {
       const profile = await response.json()
-      canManage.value = ['director', 'admin'].includes(profile.rol)
+      canManage.value = ['Director', 'admin'].includes(profile.rol)
       tenantDomain.value = getTenantFromEmail(profile.email)
       
       if (canManage.value) {
