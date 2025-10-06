@@ -11,10 +11,11 @@ import Pricing from './views/Pricing.vue'
 import Info from './views/info.vue'
 import Contact from './views/Contact.vue'
 import Nosotros from './views/Nosotros.vue'
-import Base from './views/BD.vue'
 import Courses from './views/Courses.vue'
 import MyCourses from './views/MyCourses.vue'
 import CourseDetail from './views/CourseDetail.vue'
+import Teachers from './views/Teachers.vue'
+import Students from './views/Students.vue'
 
 const routes = [
   { 
@@ -65,14 +66,6 @@ const routes = [
     meta: { requiresAuth: true } 
   },
   { 
-    path: '/base', 
-    component: Base, 
-    meta: { 
-      requiresAuth: true,
-      requiresDirector: true 
-    } 
-  },
-  { 
     path: '/courses', 
     component: Courses, 
     meta: { requiresAuth: true } 
@@ -86,6 +79,22 @@ const routes = [
     path: '/courses/:id', 
     component: CourseDetail, 
     meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/teachers', 
+    component: Teachers, 
+    meta: { 
+      requiresAuth: true,
+      requiresDirector: true 
+    } 
+  },
+  { 
+    path: '/students', 
+    component: Students, 
+    meta: { 
+      requiresAuth: true,
+      requiresTeacherOrDirector: true 
+    } 
   },
   { 
     path: '/:pathMatch(.*)*', 
@@ -151,6 +160,14 @@ router.beforeEach(async (to, from, next) => {
       if (to.meta.requiresDirector) {
         const userRole = await getUserRole()
         if (userRole !== 'director') {
+          return next('/home')
+        }
+      }
+
+      // Verificación para profesores o directores
+      if (to.meta.requiresTeacherOrDirector) {
+        const userRole = await getUserRole()
+        if (userRole !== 'director' && userRole !== 'profesor') {
           return next('/home')
         }
       }

@@ -25,12 +25,22 @@
             <router-link to="/nosotros" class="nav-link">Nosotros</router-link>
             <router-link to="/courses" class="nav-link" >Cursos</router-link>
             <router-link to="/my-courses" class="nav-link">Mis Cursos</router-link>
+            
+            <!-- Role-based navigation -->
             <router-link 
               v-if="userProfile?.rol === 'director'" 
-              to="/base" 
-              class="nav-link admin-link"
+              to="/teachers" 
+              class="nav-link"
             >
-              Roles
+              Profesores
+            </router-link>
+            
+            <router-link 
+              v-if="userProfile?.rol === 'director' || userProfile?.rol === 'profesor'" 
+              to="/students" 
+              class="nav-link"
+            >
+              Estudiantes
             </router-link>
           </div>
 
@@ -65,14 +75,23 @@
               <router-link to="/courses" class="nav-link" @click="toggleMobileMenu">Cursos</router-link>
               <router-link to="/my-courses" class="nav-link" @click="toggleMobileMenu">Mis Cursos</router-link>
               
-
+              <!-- Role-based navigation -->
               <router-link 
                 v-if="userProfile?.rol === 'director'" 
-                to="/base" 
-                class="nav-link admin-link"
+                to="/teachers" 
+                class="nav-link"
                 @click="toggleMobileMenu"
               >
-                Base de Datos
+                Profesores
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'director' || userProfile?.rol === 'profesor'" 
+                to="/students" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Estudiantes
               </router-link>
               
               <button @click="handleLogout" class="logout-btn mobile-logout" :disabled="loading">
@@ -351,17 +370,7 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.nav-link.admin-link {
-  background: #fef3c7;
-  color: #92400e;
-  font-weight: 600;
-  border: 1px solid #f59e0b;
-}
 
-.nav-link.admin-link.router-link-active {
-  background: #f59e0b;
-  color: white;
-}
 
 .nav-actions {
   display: flex;
