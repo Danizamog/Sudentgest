@@ -249,8 +249,111 @@ app.MapGet("/test", () =>
     Console.WriteLine("✅ Test endpoint funcionando");
     return Results.Ok(new { message = "Backend funcionando correctamente", status = "OK" });
 });
+// Endpoint para crear usuario en el tenant actual
+app.MapPost("/api/crear", async (HttpContext context, [FromBody] CrearUsuarioRequest request, [FromServices] Client supabase) =>
+{
+    try
+    {
+        // Obtener el email del usuario del header
+        if (!context.Request.Headers.TryGetValue("X-User-Email", out var userEmail) || string.IsNullOrEmpty(userEmail))
+        {
+            return Results.BadRequest("Email de usuario no proporcionado");
+        }
 
+        var tenant = GetTenantFromEmail(userEmail);
+        Console.WriteLine($"👤 Creando usuario en tenant: {tenant}");
+
+        // Validar campos requeridos
+        if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Nombre) || string.IsNullOrEmpty(request.Apellido))
+        {
+            return Results.BadRequest("Todos los campos son requeridos");
+        }
+
+        // Verificar que el email pertenezca al mismo tenant
+        var nuevoUsuarioTenant = GetTenantFromEmail(request.Email);
+        if (nuevoUsuarioTenant != tenant)
+        {
+            return Results.BadRequest($"El email debe pertenecer al dominio de {tenant}");
+        }
+
+        // Crear usuario según el tenant
+        switch (tenant.ToLower())
+        {
+            case "ucb.edu.bo":
+                var nuevoUcb = new UsuarioUcb
+                {
+                    Nombre = request.Nombre,
+                    Apellido = request.Apellido,
+                    Email = request.Email,
+                    Rol = request.Rol ?? "Estudiante"
+                };
+                var responseUcb = await supabase.From<UsuarioUcb>().Insert(nuevoUcb);
+                if (responseUcb.Models?.Count > 0)
+                {
+                    return Results.Ok(new
+                    {
+                        mensaje = "Usuario creado correctamente",
+                        usuario = responseUcb.Models[0]
+                    });
+                }
+                break;
+
+            case "upb.edu.bo":
+                var nuevoUpb = new UsuarioUpb
+                {
+                    Nombre = request.Nombre,
+                    Apellido = request.Apellido,
+                    Email = request.Email,
+                    Rol = request.Rol ?? "Estudiante"
+                };
+                var responseUpb = await supabase.From<UsuarioUpb>().Insert(nuevoUpb);
+                if (responseUpb.Models?.Count > 0)
+                {
+                    return Results.Ok(new
+                    {
+                        mensaje = "Usuario creado correctamente",
+                        usuario = responseUpb.Models[0]
+                    });
+                }
+                break;
+
+            case "gmail.com":
+                var nuevoGmail = new UsuarioGmail
+                {
+                    Nombre = request.Nombre,
+                    Apellido = request.Apellido,
+                    Email = request.Email,
+                    Rol = request.Rol ?? "Estudiante"
+                };
+                var responseGmail = await supabase.From<UsuarioGmail>().Insert(nuevoGmail);
+                if (responseGmail.Models?.Count > 0)
+                {
+                    return Results.Ok(new
+                    {
+                        mensaje = "Usuario creado correctamente",
+                        usuario = responseGmail.Models[0]
+                    });
+                }
+                break;
+        }
+
+        return Results.Problem("Error al crear el usuario");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error creando usuario: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        return Results.Problem($"Error interno: {ex.Message}");
+    }
+});
 app.Run();
+public class CrearUsuarioRequest
+{
+    public string Nombre { get; set; } = string.Empty;
+    public string Apellido { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Rol { get; set; }
+}
 
 // Modelos para respuesta
 public class Usuario
