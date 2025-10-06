@@ -23,4 +23,9 @@ services:
     ports:
       - "5173:80"
     env_file: ./front/.env
-    
+  roles:
+    build: ./back/Roles
+    ports:
+      - "5009:8080"
+    env_file:
+      - ./back/Roles/.env
