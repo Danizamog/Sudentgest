@@ -372,6 +372,90 @@ app.MapPost("/api/crear", async (HttpContext context, [FromBody] CrearUsuarioReq
         return Results.Problem($"Error interno: {ex.Message}");
     }
 });
+// Endpoint para obtener usuarios filtrados por rol
+app.MapGet("/api/usuarios/mi-tenant/filtrar", async (HttpContext context, [FromQuery] string? rol, [FromServices] Client supabase) =>
+{
+    try
+    {
+        // Obtener el email del usuario del header
+        if (!context.Request.Headers.TryGetValue("X-User-Email", out var userEmail) || string.IsNullOrEmpty(userEmail))
+        {
+            return Results.BadRequest("Email de usuario no proporcionado");
+        }
+
+        var tenant = GetTenantFromEmail(userEmail);
+        Console.WriteLine($"🔍 Obteniendo usuarios para tenant: {tenant} (usuario: {userEmail}) - Rol: {rol ?? "Todos"}");
+        
+        var usuarios = new List<Usuario>();
+        
+        switch (tenant.ToLower())
+        {
+            case "ucb.edu.bo":
+                var queryUcb = supabase.From<UsuarioUcb>().Select("*");
+                if (!string.IsNullOrEmpty(rol))
+                    queryUcb = queryUcb.Where(x => x.Rol == rol);
+                
+                var responseUcb = await queryUcb.Get();
+                usuarios = responseUcb.Models?.Select(u => new Usuario
+                {
+                    Id = u.Id,
+                    Nombre = u.Nombre,
+                    Apellido = u.Apellido,
+                    Email = u.Email,
+                    Rol = u.Rol ?? "Estudiante"
+                }).ToList() ?? new List<Usuario>();
+                break;
+                
+            case "upb.edu.bo":
+                var queryUpb = supabase.From<UsuarioUpb>().Select("*");
+                if (!string.IsNullOrEmpty(rol))
+                    queryUpb = queryUpb.Where(x => x.Rol == rol);
+                
+                var responseUpb = await queryUpb.Get();
+                usuarios = responseUpb.Models?.Select(u => new Usuario
+                {
+                    Id = u.Id,
+                    Nombre = u.Nombre,
+                    Apellido = u.Apellido,
+                    Email = u.Email,
+                    Rol = u.Rol ?? "Estudiante"
+                }).ToList() ?? new List<Usuario>();
+                break;
+                
+            case "gmail.com":
+                var queryGmail = supabase.From<UsuarioGmail>().Select("*");
+                if (!string.IsNullOrEmpty(rol))
+                    queryGmail = queryGmail.Where(x => x.Rol == rol);
+                
+                var responseGmail = await queryGmail.Get();
+                usuarios = responseGmail.Models?.Select(u => new Usuario
+                {
+                    Id = u.Id,
+                    Nombre = u.Nombre,
+                    Apellido = u.Apellido,
+                    Email = u.Email,
+                    Rol = u.Rol ?? "Estudiante"
+                }).ToList() ?? new List<Usuario>();
+                break;
+                
+            default:
+                return Results.BadRequest($"Tenant no válido para el email: {userEmail}");
+        }
+
+        Console.WriteLine($"✅ {tenant}: {usuarios.Count} usuarios encontrados (Filtro: {rol ?? "Todos"})");
+        return Results.Ok(new { 
+            usuarios,
+            tenant,
+            total = usuarios.Count,
+            filtroRol = rol
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error obteniendo usuarios: {ex.Message}");
+        return Results.Problem($"Error interno: {ex.Message}");
+    }
+});
 app.Run();
 public class CrearUsuarioRequest
 {
