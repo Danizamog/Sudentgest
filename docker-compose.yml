@@ -10,13 +10,49 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+  
   courses:
     build: ./back/Courses
     ports:
       - "5008:5000"
     env_file:
       - ./back/Courses/.env
-
+  
+  teachers:
+    build: ./back/Teachers
+    ports:
+      - "5009:5000"
+    env_file:
+      - ./back/Teachers/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  
+  students:
+    build: ./back/Students
+    ports:
+      - "5010:5000"
+    env_file:
+      - ./back/Students/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  
+  directors:
+    build: ./back/Directors
+    ports:
+      - "5011:5000"
+    env_file:
+      - ./back/Directors/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build: ./front
