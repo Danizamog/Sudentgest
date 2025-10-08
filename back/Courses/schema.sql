@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS tenant_ucb_cursos (
   descripcion TEXT,
   creditos INTEGER DEFAULT 3,
   horario VARCHAR(255),
+  profesor_id BIGINT REFERENCES tenant_ucb_usuarios(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índice para búsquedas por profesor
+CREATE INDEX IF NOT EXISTS idx_ucb_cursos_profesor ON tenant_ucb_cursos(profesor_id);
 
 -- Tabla de inscripciones (relación usuario-curso)
 CREATE TABLE IF NOT EXISTS tenant_ucb_inscripciones (
@@ -38,9 +42,13 @@ CREATE TABLE IF NOT EXISTS tenant_upb_cursos (
   descripcion TEXT,
   creditos INTEGER DEFAULT 3,
   horario VARCHAR(255),
+  profesor_id BIGINT REFERENCES tenant_upb_usuarios(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índice para búsquedas por profesor
+CREATE INDEX IF NOT EXISTS idx_upb_cursos_profesor ON tenant_upb_cursos(profesor_id);
 
 CREATE TABLE IF NOT EXISTS tenant_upb_inscripciones (
   id BIGSERIAL PRIMARY KEY,
@@ -64,9 +72,13 @@ CREATE TABLE IF NOT EXISTS tenant_gmail_cursos (
   descripcion TEXT,
   creditos INTEGER DEFAULT 3,
   horario VARCHAR(255),
+  profesor_id BIGINT REFERENCES tenant_gmail_usuarios(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índice para búsquedas por profesor
+CREATE INDEX IF NOT EXISTS idx_gmail_cursos_profesor ON tenant_gmail_cursos(profesor_id);
 
 CREATE TABLE IF NOT EXISTS tenant_gmail_inscripciones (
   id BIGSERIAL PRIMARY KEY,

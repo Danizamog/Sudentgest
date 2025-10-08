@@ -12,6 +12,9 @@ obj/
 packages/
 .nuget/
 
+node_modules/
+
+
 # Docker
 **/out/
 **/docker-compose.override.yml

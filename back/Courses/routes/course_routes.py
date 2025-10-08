@@ -46,3 +46,21 @@ async def delete_enrollment(inscripcion_id: int, authorization: str = Header(Non
     """Eliminar inscripción de un curso (solo directores/admin)"""
     user = await get_current_user(authorization)
     return await CourseController.delete_enrollment(inscripcion_id, user["email"])
+
+@router.put("/{curso_id}")
+async def update_course(curso_id: int, course: Course, authorization: str = Header(None)):
+    """Actualizar curso (solo directores/admin)"""
+    user = await get_current_user(authorization)
+    return await CourseController.update_course(curso_id, course, user["email"])
+
+@router.delete("/{curso_id}")
+async def delete_course(curso_id: int, authorization: str = Header(None)):
+    """Eliminar curso (solo directores/admin)"""
+    user = await get_current_user(authorization)
+    return await CourseController.delete_course(curso_id, user["email"])
+
+@router.post("/{curso_id}/assign-teacher")
+async def assign_teacher(curso_id: int, profesor_id: int, authorization: str = Header(None)):
+    """Asignar profesor a un curso (solo directores/admin)"""
+    user = await get_current_user(authorization)
+    return await CourseController.assign_teacher(curso_id, profesor_id, user["email"])

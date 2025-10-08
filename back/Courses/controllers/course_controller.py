@@ -281,3 +281,144 @@ class CourseController:
                 return {"success": True, "message": "Inscripción eliminada"}
             else:
                 raise HTTPException(status_code=500, detail=f"Error al eliminar inscripción: {response.text}")
+    
+    @staticmethod
+    async def update_course(curso_id: int, course: Course, email: str) -> Dict:
+        """Actualizar curso (solo directores/admin)"""
+        tenant_domain = get_tenant_from_email(email)
+        if not tenant_domain:
+            raise HTTPException(status_code=400, detail="Tenant no identificado")
+        
+        tenant_info = await get_tenant_info(tenant_domain)
+        if not tenant_info:
+            raise HTTPException(status_code=404, detail="Tenant no encontrado")
+        
+        schema = tenant_info["schema_name"]
+        
+        # Verificar permisos
+        user_data = await get_user_by_email(email, schema)
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
+            raise HTTPException(status_code=403, detail="No tienes permisos para actualizar cursos")
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }
+            table_name = f"{schema}_cursos"
+            payload = {
+                "nombre": course.nombre,
+                "codigo": course.codigo,
+                "descripcion": course.descripcion,
+                "creditos": course.creditos,
+                "horario": course.horario
+            }
+            response = await client.patch(
+                f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{curso_id}",
+                json=payload,
+                headers=headers
+            )
+            if response.status_code == 200:
+                return {"success": True, "curso": response.json()}
+            else:
+                raise HTTPException(status_code=500, detail=f"Error al actualizar curso: {response.text}")
+    
+    @staticmethod
+    async def delete_course(curso_id: int, email: str) -> Dict:
+        """Eliminar curso (solo directores/admin)"""
+        tenant_domain = get_tenant_from_email(email)
+        if not tenant_domain:
+            raise HTTPException(status_code=400, detail="Tenant no identificado")
+        
+        tenant_info = await get_tenant_info(tenant_domain)
+        if not tenant_info:
+            raise HTTPException(status_code=404, detail="Tenant no encontrado")
+        
+        schema = tenant_info["schema_name"]
+        
+        # Verificar permisos
+        user_data = await get_user_by_email(email, schema)
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
+            raise HTTPException(status_code=403, detail="No tienes permisos para eliminar cursos")
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
+            }
+            
+            # Primero eliminar inscripciones relacionadas
+            inscripciones_table = f"{schema}_inscripciones"
+            await client.delete(
+                f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}",
+                headers=headers
+            )
+            
+            # Luego eliminar el curso
+            cursos_table = f"{schema}_cursos"
+            response = await client.delete(
+                f"{SUPABASE_URL}/rest/v1/{cursos_table}?id=eq.{curso_id}",
+                headers=headers
+            )
+            
+            if response.status_code in [200, 204]:
+                return {"success": True, "message": "Curso eliminado exitosamente"}
+            else:
+                raise HTTPException(status_code=500, detail=f"Error al eliminar curso: {response.text}")
+    
+    @staticmethod
+    async def assign_teacher(curso_id: int, profesor_id: int, email: str) -> Dict:
+        """Asignar profesor a un curso (solo directores/admin)"""
+        tenant_domain = get_tenant_from_email(email)
+        if not tenant_domain:
+            raise HTTPException(status_code=400, detail="Tenant no identificado")
+        
+        tenant_info = await get_tenant_info(tenant_domain)
+        if not tenant_info:
+            raise HTTPException(status_code=404, detail="Tenant no encontrado")
+        
+        schema = tenant_info["schema_name"]
+        
+        # Verificar permisos
+        user_data = await get_user_by_email(email, schema)
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
+            raise HTTPException(status_code=403, detail="No tienes permisos para asignar profesores")
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }
+            
+            # Verificar que el usuario sea profesor
+            usuarios_table = f"{schema}_usuarios"
+            user_response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/{usuarios_table}?id=eq.{profesor_id}&select=id,rol",
+                headers=headers
+            )
+            
+            if user_response.status_code == 200:
+                users = user_response.json()
+                if not users or users[0].get("rol") != "Profesor":
+                    raise HTTPException(status_code=400, detail="El usuario seleccionado no es un profesor")
+            else:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            
+            # Actualizar el curso con el profesor asignado
+            cursos_table = f"{schema}_cursos"
+            payload = {"profesor_id": profesor_id}
+            
+            response = await client.patch(
+                f"{SUPABASE_URL}/rest/v1/{cursos_table}?id=eq.{curso_id}",
+                json=payload,
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                return {"success": True, "message": "Profesor asignado exitosamente"}
+            else:
+                raise HTTPException(status_code=500, detail=f"Error al asignar profesor: {response.text}")
