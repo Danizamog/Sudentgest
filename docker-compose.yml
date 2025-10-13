@@ -65,3 +65,9 @@ services:
       - "5009:8080"
     env_file:
       - ./back/Roles/.env
+  notas:
+    build: ./back/Grades
+    ports:
+      - "5012:8080"
+    env_file:
+      - ./back/Grades/.env
