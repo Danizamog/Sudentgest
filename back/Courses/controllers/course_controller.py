@@ -129,7 +129,7 @@ class CourseController:
     
     @staticmethod
     async def get_my_courses(email: str) -> Dict:
-        """Obtener cursos del usuario actual"""
+        """Obtener cursos del usuario actual (estudiantes Y profesores)"""
         tenant_domain = get_tenant_from_email(email)
         if not tenant_domain:
             raise HTTPException(status_code=400, detail="Tenant no identificado")
@@ -139,11 +139,13 @@ class CourseController:
             raise HTTPException(status_code=404, detail="Tenant no encontrado")
         
         schema = tenant_info["schema_name"]
+        
         user_data = await get_user_by_email(email, schema)
         if not user_data:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
         user_id = user_data["id"]
+        user_rol = user_data.get("rol", "Estudiante")
         
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {
@@ -151,7 +153,24 @@ class CourseController:
                 "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
             }
             
+            cursos_table = f"{schema}_cursos"
+            
+            # Si es profesor, obtener cursos donde está asignado
+            if user_rol.lower() == "profesor":
+                cursos_response = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/{cursos_table}?profesor_id=eq.{user_id}&select=*&order=nombre.asc",
+                    headers=headers
+                )
+                
+                if cursos_response.status_code == 200:
+                    cursos = cursos_response.json()
+                    return {"usuario": email, "rol": user_rol, "cursos": cursos}
+                else:
+                    raise HTTPException(status_code=500, detail="Error al obtener cursos del profesor")
+            
+            # Si es estudiante, obtener cursos por inscripciones
             inscripciones_table = f"{schema}_inscripciones"
+            
             response = await client.get(
                 f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?usuario_id=eq.{user_id}&select=*",
                 headers=headers
@@ -162,9 +181,8 @@ class CourseController:
                 curso_ids = [insc["curso_id"] for insc in inscripciones]
                 
                 if not curso_ids:
-                    return {"usuario": email, "rol": user_data.get("rol"), "cursos": []}
+                    return {"usuario": email, "rol": user_rol, "cursos": []}
                 
-                cursos_table = f"{schema}_cursos"
                 ids_query = ",".join(map(str, curso_ids))
                 
                 cursos_response = await client.get(
@@ -174,7 +192,7 @@ class CourseController:
                 
                 if cursos_response.status_code == 200:
                     cursos = cursos_response.json()
-                    return {"usuario": email, "rol": user_data.get("rol"), "cursos": cursos}
+                    return {"usuario": email, "rol": user_rol, "cursos": cursos}
                 else:
                     raise HTTPException(status_code=500, detail="Error al obtener cursos")
             else:
@@ -182,7 +200,7 @@ class CourseController:
     
     @staticmethod
     async def get_course_enrollments(curso_id: int, email: str) -> Dict:
-        """Obtener estudiantes inscritos en un curso (solo directores/admin)"""
+        """Obtener estudiantes inscritos en un curso con sus datos completos"""
         tenant_domain = get_tenant_from_email(email)
         if not tenant_domain:
             raise HTTPException(status_code=400, detail="Tenant no identificado")
@@ -193,10 +211,13 @@ class CourseController:
         
         schema = tenant_info["schema_name"]
         
-        # Verificar permisos
+        # Verificar que el usuario tenga permisos (profesor del curso o director)
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
-            raise HTTPException(status_code=403, detail="No tienes permisos")
+        if not user_data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        user_rol = user_data.get("rol", "").lower()
+        user_id = user_data["id"]
         
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {
@@ -204,15 +225,32 @@ class CourseController:
                 "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
             }
             
-            # Obtener inscripciones del curso
+            # Si es profesor, verificar que esté inscrito en el curso
+            if user_rol == "profesor":
+                inscripciones_table = f"{schema}_inscripciones"
+                check_response = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&usuario_id=eq.{user_id}&select=id",
+                    headers=headers
+                )
+                
+                if check_response.status_code != 200 or not check_response.json():
+                    raise HTTPException(
+                        status_code=403, 
+                        detail="No tienes permiso para ver los estudiantes de este curso"
+                    )
+            
+            # Si es director o profesor autorizado, obtener inscripciones
             inscripciones_table = f"{schema}_inscripciones"
-            response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&select=*",
+            usuarios_table = f"{schema}_usuarios"
+            
+            # Obtener inscripciones del curso
+            inscripciones_response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&select=usuario_id",
                 headers=headers
             )
             
-            if response.status_code == 200:
-                inscripciones = response.json()
+            if inscripciones_response.status_code == 200:
+                inscripciones = inscripciones_response.json()
                 usuario_ids = [insc["usuario_id"] for insc in inscripciones]
                 
                 if not usuario_ids:
@@ -422,3 +460,83 @@ class CourseController:
                 return {"success": True, "message": "Profesor asignado exitosamente"}
             else:
                 raise HTTPException(status_code=500, detail=f"Error al asignar profesor: {response.text}")
+    
+    @staticmethod
+    async def get_course_students_for_attendance(curso_id: int, email: str) -> Dict:
+        """Obtener SOLO estudiantes inscritos en un curso para tomar asistencia (profesores)"""
+        tenant_domain = get_tenant_from_email(email)
+        if not tenant_domain:
+            raise HTTPException(status_code=400, detail="Tenant no identificado")
+        
+        tenant_info = await get_tenant_info(tenant_domain)
+        if not tenant_info:
+            raise HTTPException(status_code=404, detail="Tenant no encontrado")
+        
+        schema = tenant_info["schema_name"]
+        
+        # Verificar que el usuario tenga permisos
+        user_data = await get_user_by_email(email, schema)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        user_rol = user_data.get("rol", "")
+        user_id = user_data["id"]
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+            }
+            
+            # Si es profesor, verificar que esté asignado al curso (profesor_id en tabla cursos)
+            if user_rol.lower() == "profesor":
+                cursos_table = f"{schema}_cursos"
+                check_response = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/{cursos_table}?id=eq.{curso_id}&profesor_id=eq.{user_id}&select=id",
+                    headers=headers
+                )
+                
+                if check_response.status_code != 200 or not check_response.json():
+                    raise HTTPException(
+                        status_code=403, 
+                        detail="No tienes permiso para ver estudiantes de este curso"
+                    )
+            elif user_rol.lower() not in ["director", "admin"]:
+                raise HTTPException(status_code=403, detail="No tienes permisos suficientes")
+            
+            # Obtener inscripciones del curso (solo estudiantes)
+            inscripciones_table = f"{schema}_inscripciones"
+            inscripciones_response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&select=usuario_id",
+                headers=headers
+            )
+            
+            if inscripciones_response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Error al obtener inscripciones")
+            
+            inscripciones = inscripciones_response.json()
+            usuario_ids = [insc["usuario_id"] for insc in inscripciones]
+            
+            if not usuario_ids:
+                return {"inscripciones": []}
+            
+            # Obtener datos de usuarios inscritos
+            usuarios_table = f"{schema}_usuarios"
+            ids_query = ",".join(map(str, usuario_ids))
+            
+            usuarios_response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/{usuarios_table}?id=in.({ids_query})&select=id,nombre,apellido,email,rol",
+                headers=headers
+            )
+            
+            if usuarios_response.status_code == 200:
+                usuarios = usuarios_response.json()
+                # Filtrar SOLO estudiantes
+                estudiantes = [
+                    {"usuario_id": u["id"]}
+                    for u in usuarios 
+                    if u.get("rol", "").lower() == "estudiante"
+                ]
+                return {"inscripciones": estudiantes}
+            else:
+                raise HTTPException(status_code=500, detail="Error al obtener usuarios")

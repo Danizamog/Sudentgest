@@ -23,14 +23,44 @@
             <router-link to="/foro" class="nav-link">Foro</router-link>
             <router-link to="/pricing" class="nav-link">Precios</router-link>
             <router-link to="/nosotros" class="nav-link">Nosotros</router-link>
-            <router-link to="/courses" class="nav-link" >Cursos</router-link>
-            <router-link v-if="userProfile?.rol !== 'Director'" to="/my-courses" class="nav-link">Mis Cursos</router-link>
+            <router-link v-if="userProfile?.rol === 'Director'" to="/courses" class="nav-link">Cursos</router-link>
+            <router-link v-if="['Estudiante'].includes(userProfile?.rol)" to="/my-courses" class="nav-link">Mis Cursos</router-link>
             <router-link 
               v-if="userProfile?.rol === 'Director'" 
               to="/base" 
               class="nav-link admin-link"
+            >Roles </router-link>
+            <router-link 
+              v-if="['Profesor'].includes(userProfile?.rol)" 
+              to="/attendance" 
+              class="nav-link"
             >
-              Roles
+              Registrar Asistencia
+            </router-link>
+            
+            <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/excuses/manage" 
+              class="nav-link admin-link"
+            >
+              Gestionar Excusas
+            </router-link>
+            <router-link 
+              v-if="['Profesor', 'Padre', 'Admin' ].includes(userProfile?.rol)" 
+              to="/excuses" 
+              class="nav-link"
+            >
+              Excusas
+            </router-link>
+            <router-link 
+              v-if="['Profesor'].includes(userProfile?.rol)" 
+              to="/attendance/history" 
+              class="nav-link"
+            >
+              Historial Asist.
+            </router-link>
+            <router-link v-if="['Profesor', 'Director'].includes(userProfile?.rol)" to="/excuses/history" class="nav-link">
+              {{ userProfile?.rol === 'Director' ? 'Historial Excusas' : 'Mis Excusas' }}
             </router-link>
           </div>
 

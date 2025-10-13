@@ -15,6 +15,11 @@ import Base from './views/BD.vue'
 import Courses from './views/Courses.vue'
 import MyCourses from './views/MyCourses.vue'
 import CourseDetail from './views/CourseDetail.vue'
+import Attendance from './views/Attendance.vue'
+import Excuses from './views/Excuses.vue'
+import ExcusesManagement from './views/ExcusesManagement.vue'
+import AttendanceHistory from './views/AttendanceHistory.vue'
+import ExcusesHistory from './views/ExcusesHistory.vue'
 
 const routes = [
   { 
@@ -85,6 +90,34 @@ const routes = [
   { 
     path: '/courses/:id', 
     component: CourseDetail, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/attendance', 
+    component: Attendance, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/excuses', 
+    component: Excuses, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/excuses/manage', 
+    component: ExcusesManagement, 
+    meta: { 
+      requiresAuth: true,
+      requiresDirector: true 
+    } 
+  },
+  { 
+    path: '/attendance/history', 
+    component: AttendanceHistory, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/excuses/history', 
+    component: ExcusesHistory, 
     meta: { requiresAuth: true } 
   },
   { 

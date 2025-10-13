@@ -24,3 +24,4 @@ node_modules/
 
 # Config locales
 appsettings.Development.json
+readme.md
