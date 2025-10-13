@@ -1,4 +1,3 @@
-
 services:
   auth:
     build: ./back/Auth
@@ -16,8 +15,6 @@ services:
       - "5008:5000"
     env_file:
       - ./back/Courses/.env
-
-
   frontend:
     build: ./front
     ports:
@@ -34,8 +31,16 @@ services:
     ports:
       - "5010:80"
 
+
   attendance:
     build: ./back/Attendance
     ports:
       - "5004:5000"
     env_file: ./back/Attendance/.env
+
+  tareas:
+    build: ./back/Tareas
+    ports:
+      - "5011:8080"
+    env_file:
+      - ./back/Tareas/.env

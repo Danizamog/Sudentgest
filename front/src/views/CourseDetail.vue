@@ -4,6 +4,9 @@
       <div class="header">
         <button @click="$router.back()" class="btn-back">← Volver</button>
         <h1>{{ curso?.nombre || 'Cargando...' }}</h1>
+        <button @click="viewAssignments" class="btn-assignments">
+          📝 Ver Tareas
+        </button>
       </div>
 
       <div v-if="loading" class="loading">Cargando información...</div>
@@ -137,10 +140,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 
 const route = useRoute()
+const router = useRouter()
 const curso = ref(null)
 const inscritos = ref([])
 const profesores = ref([])
@@ -332,6 +336,8 @@ onMounted(() => {
 .wrap { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; animation: slideIn .7s; }
 .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
 .btn-back { background: #fff; color: #2a4dd0; border: 2px solid #2a4dd0; padding: .5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-assignments { background: #10b981; color: #fff; border: none; padding: .5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: auto; transition: background .2s; }
+.btn-assignments:hover { background: #059669; }
 .loading, .error, .empty { text-align: center; padding: 2rem; }
 .error { color: #ef4444; }
 .error-box { background: #fee; color: #c00; padding: .75rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #fcc; }
@@ -396,10 +402,11 @@ onMounted(() => {
 
 @media (max-width: 900px) {
   .course-info { grid-template-columns: repeat(2, 1fr); }
+  .header { flex-wrap: wrap; }
+  .btn-assignments { margin-left: 0; }
 }
 @media (max-width: 600px) {
   .course-info { grid-template-columns: 1fr; }
   .header { flex-direction: column; align-items: flex-start; }
-  .profesor-card { flex-direction: column; gap: 1rem; text-align: center; }
 }
 </style>
