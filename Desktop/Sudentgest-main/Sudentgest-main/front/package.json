@@ -1,0 +1,23 @@
+{
+  "name": "supabase-vue-auth",
+  "version": "1.0.0",
+  "description": "A Vue.js frontend project",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "typescript": "^5.9.2",
+    "vue": "^3.5.22",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.6.2",
+    "vite": "^4.5.14"
+  },
+  "author": "Daniel Alejandro Zamorano Gamarra",
+  "license": "MIT"
+}

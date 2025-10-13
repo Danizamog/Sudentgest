@@ -1,0 +1,10 @@
+# Ignore environment files containing secrets
+*.env
+**/.env
+
+# Ignore local db data
+postgres_data/
+
+# Ignore user secrets and logs
+secrets.json
+*.log
