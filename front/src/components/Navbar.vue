@@ -238,7 +238,7 @@ onMounted(() => {
 .navbar-wrapper {
   position: sticky;
   top: 0;
-  z-index: 1000;
+
 }
 
 .container {
