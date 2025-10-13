@@ -61,10 +61,16 @@ async def health():
 # Manejo de errores global
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    print(f" Error no controlado: {exc}")
+    import traceback
+    error_details = traceback.format_exc()
+    print(f"❌ Error no controlado en {request.url}: {exc}")
+    print(f"📍 Traceback completo:\n{error_details}")
+    
     return {
         "error": "Error interno del servidor",
-        "detail": str(exc)
+        "detail": str(exc),
+        "path": str(request.url),
+        "type": type(exc).__name__
     }
 
 

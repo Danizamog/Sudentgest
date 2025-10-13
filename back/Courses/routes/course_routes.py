@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
 import sys
 import os
 
@@ -35,17 +35,30 @@ async def get_my_courses(authorization: str = Header(None)):
     user = await get_current_user(authorization)
     return await CourseController.get_my_courses(user["email"])
 
-@router.get("/{curso_id}/students")
-async def get_course_students_for_attendance(curso_id: int, authorization: str = Header(None)):
-    """Obtener SOLO estudiantes de un curso para tomar asistencia (profesores)"""
-    user = await get_current_user(authorization)
-    return await CourseController.get_course_students_for_attendance(curso_id, user["email"])
-
 @router.get("/{curso_id}/enrollments")
 async def get_course_enrollments(curso_id: int, authorization: str = Header(None)):
     """Obtener todos los inscritos en un curso con datos completos (directores/admin)"""
-    user = await get_current_user(authorization)
-    return await CourseController.get_course_enrollments(curso_id, user["email"])
+    try:
+        user = await get_current_user(authorization)
+        result = await CourseController.get_course_enrollments(curso_id, user["email"])
+        print(f"✅ Enrollments obtenidos para curso {curso_id}: {len(result.get('inscripciones', []))} registros")
+        return result
+    except Exception as e:
+        print(f"❌ Error en get_course_enrollments para curso {curso_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener inscripciones: {str(e)}")
+
+@router.get("/{curso_id}/students")
+async def get_course_students_for_attendance(curso_id: int, authorization: str = Header(None)):
+    """Obtener SOLO estudiantes de un curso para tomar asistencia (profesores)"""
+    try:
+        user = await get_current_user(authorization)
+        result = await CourseController.get_course_students_for_attendance(curso_id, user["email"])
+        print(f"✅ Estudiantes obtenidos para curso {curso_id}: {len(result.get('inscripciones', []))} registros")
+        return result
+    except Exception as e:
+        print(f"❌ Error en get_course_students_for_attendance para curso {curso_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener estudiantes: {str(e)}")
+
 @router.delete("/enrollments/{inscripcion_id}")
 async def delete_enrollment(inscripcion_id: int, authorization: str = Header(None)):
     """Eliminar inscripción de un curso (solo directores/admin)"""
