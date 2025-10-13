@@ -15,120 +15,69 @@ import Base from './views/BD.vue'
 import Courses from './views/Courses.vue'
 import MyCourses from './views/MyCourses.vue'
 import CourseDetail from './views/CourseDetail.vue'
+import AssignmentsView from './views/AssignmentsView.vue'
+// Rutas
+
 
 const routes = [
+  { path: '/', redirect: '/signin', meta : { hideNavbar: true } },
+  { path: '/signin', component: SignIn },
+  { path: '/auth/callback', component: AuthCallback },
+  { path: '/home', component: Home, meta: { requiresAuth: true } },
+  { path: '/foro', component: Foro, meta: { requiresAuth: true } },
+  { path: '/features', component: Features, meta: { requiresAuth: true } },
+  { path: '/pricing', component: Pricing, meta: { requiresAuth: true } },
+  { path: '/info', component: Info, meta: { requiresAuth: true } },
+  { path: '/contact', component: Contact, meta: { requiresAuth: true } },
+  { path: '/nosotros', component: Nosotros, meta: { requiresAuth: true } },
+  { path: '/base', component: Base, meta: { requiresAuth: true, requiresDirector: true } },
+  { path: '/courses', component: Courses, meta: { requiresAuth: true } },
+  { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true } },
+  { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true } },
   { 
-    path: '/', 
-    redirect: '/signin'
-  },
-  { 
-    path: '/signin', 
-    component: SignIn
-  },
-  { 
-    path: '/auth/callback', 
-    component: AuthCallback
-  },
-  { 
-    path: '/home', 
-    component: Home, 
+    path: '/courses/:id/assignments', 
+    name: 'assignments', 
+    component: AssignmentsView, 
     meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/foro', 
-    component: Foro, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/features', 
-    component: Features, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/pricing', 
-    component: Pricing, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/info', 
-    component: Info, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/contact', 
-    component: Contact, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/nosotros', 
-    component: Nosotros, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/base', 
-    component: Base, 
-    meta: { 
-      requiresAuth: true,
-      requiresDirector: true 
-    } 
-  },
-  { 
-    path: '/courses', 
-    component: Courses, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/my-courses', 
-    component: MyCourses, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/courses/:id', 
-    component: CourseDetail, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/:pathMatch(.*)*', 
-    redirect: '/signin'
-  }
+  },{ path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
+
 
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-// Cache de rol de usuario
+// Cache de rol
 let userRoleCache = null
 
-// Función para obtener rol del usuario
 async function getUserRole() {
   if (userRoleCache) return userRoleCache
-  
+
   try {
     const token = localStorage.getItem('token')
     if (!token) throw new Error('No token found')
-    
-    const backendUrl = window.location.hostname === 'localhost' 
-      ? 'http://localhost:5002' 
+
+    const backendUrl = window.location.hostname === 'localhost'
+      ? 'http://localhost:5002'
       : '/api/auth'
-    
+
     const response = await fetch(`${backendUrl}/api/auth/user-profile`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     })
-    
+
     if (response.ok) {
       const profile = await response.json()
-      userRoleCache = profile.rol || 'estudiante'
+      userRoleCache = profile.rol || 'Estudiante'
       return userRoleCache
     }
-    
+
     throw new Error('Failed to fetch user profile')
   } catch (error) {
-    userRoleCache = 'estudiante'
+    userRoleCache = 'Estudiante'
     return userRoleCache
   }
 }
@@ -136,43 +85,36 @@ async function getUserRole() {
 // Guardia de navegación
 router.beforeEach(async (to, from, next) => {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: user } = await supabase.auth.getUser()
     const token = localStorage.getItem('token')
-    const isAuthenticated = !!(session && token)
+    const isAuthenticated = !!(user && token)
 
-    // Rutas que requieren autenticación
     if (to.meta.requiresAuth) {
       if (!isAuthenticated) {
         localStorage.removeItem('token')
         return next('/signin')
       }
 
-      // Verificación de rol director
       if (to.meta.requiresDirector) {
         const userRole = await getUserRole()
         if (userRole !== 'Director') {
           return next('/home')
         }
       }
-      
+
       next()
-    } 
-    // Redirigir a home si ya está autenticado y trata de acceder a signin
-    else if ((to.path === '/signin' || to.path === '/') && isAuthenticated) {
+    } else if ((to.path === '/signin' || to.path === '/') && isAuthenticated) {
       next('/home')
-    } 
-    // Permitir acceso a rutas públicas
-    else {
+    } else {
       next()
     }
-    
   } catch (error) {
     localStorage.removeItem('token')
     next('/signin')
   }
 })
 
-// Limpiar cache cuando cambie la autenticación
+// Limpiar cache de rol si cambia la sesión
 supabase.auth.onAuthStateChange(() => {
   userRoleCache = null
 })

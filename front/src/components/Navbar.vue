@@ -131,7 +131,7 @@ async function getUserProfile() {
       userProfile.value = {
         nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario',
         email: user.email,
-        rol: 'estudiante'
+        rol: 'Estudiante'
       }
     }
     
@@ -141,7 +141,7 @@ async function getUserProfile() {
       userProfile.value = {
         nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario',
         email: user.email,
-        rol: 'estudiante'
+        rol: 'Estudiante'
       }
     }
   }

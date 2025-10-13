@@ -4,6 +4,9 @@
       <div class="header">
         <button @click="$router.back()" class="btn-back">← Volver</button>
         <h1>{{ curso?.nombre || 'Cargando...' }}</h1>
+        <button @click="viewAssignments" class="btn-assignments">
+          📝 Ver Tareas
+        </button>
       </div>
 
       <div v-if="loading" class="loading">Cargando información...</div>
@@ -72,10 +75,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 
 const route = useRoute()
+const router = useRouter()
 const curso = ref(null)
 const inscritos = ref([])
 const loading = ref(true)
@@ -85,6 +89,11 @@ const showConfirm = ref(false)
 const inscritoToDelete = ref(null)
 
 const COURSES_API = import.meta.env.VITE_COURSES_API || 'http://localhost:5008'
+
+function viewAssignments() {
+  const cursoId = route.params.id
+  router.push(`/courses/${cursoId}/assignments`)
+}
 
 async function fetchCourseDetail() {
   try {
@@ -170,6 +179,8 @@ onMounted(() => {
 .wrap { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; animation: slideIn .7s; }
 .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
 .btn-back { background: #fff; color: #2a4dd0; border: 2px solid #2a4dd0; padding: .5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-assignments { background: #10b981; color: #fff; border: none; padding: .5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: auto; transition: background .2s; }
+.btn-assignments:hover { background: #059669; }
 .loading, .error, .empty { text-align: center; padding: 2rem; }
 .error { color: #ef4444; }
 .empty { color: #666; }
@@ -210,9 +221,12 @@ onMounted(() => {
 
 @media (max-width: 900px) {
   .course-info { grid-template-columns: repeat(2, 1fr); }
+  .header { flex-wrap: wrap; }
+  .btn-assignments { margin-left: 0; }
 }
 @media (max-width: 600px) {
   .course-info { grid-template-columns: 1fr; }
-  .header { flex-direction: column; align-items: flex-start; }
+  .header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .btn-assignments { width: 100%; }
 }
 </style>

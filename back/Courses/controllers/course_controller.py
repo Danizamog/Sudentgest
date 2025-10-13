@@ -59,7 +59,7 @@ class CourseController:
         schema = tenant_info["schema_name"]
         
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["director", "admin"]:
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
             raise HTTPException(status_code=403, detail="No tienes permisos para crear cursos")
         
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -101,7 +101,7 @@ class CourseController:
         
         schema = tenant_info["schema_name"]
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["director", "admin"]:
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
             raise HTTPException(status_code=403, detail="No tienes permisos para inscribir")
         
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -195,7 +195,7 @@ class CourseController:
         
         # Verificar permisos
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["director", "admin"]:
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
             raise HTTPException(status_code=403, detail="No tienes permisos")
         
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -264,7 +264,7 @@ class CourseController:
         
         # Verificar permisos
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["director", "admin"]:
+        if not user_data or user_data.get("rol") not in ["Director", "admin"]:
             raise HTTPException(status_code=403, detail="No tienes permisos para eliminar inscripciones")
         
         async with httpx.AsyncClient(timeout=10.0) as client:
