@@ -21,7 +21,7 @@ services:
   teachers:
     build: ./back/Teachers
     ports:
-      - "5009:5000"
+      - "5019:5000"
     env_file:
       - ./back/Teachers/.env
     healthcheck:
@@ -65,7 +65,7 @@ services:
       - "5009:8080"
     env_file:
       - ./back/Roles/.env
-  notas:
+  grades:
     build: ./back/Grades
     ports:
       - "5012:8080"

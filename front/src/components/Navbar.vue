@@ -28,7 +28,7 @@
             
             <!-- Role-based navigation -->
             <router-link 
-              v-if="userProfile?.rol === 'director'" 
+              v-if="userProfile?.rol === 'Director'" 
               to="/teachers" 
               class="nav-link"
             >
@@ -36,11 +36,18 @@
             </router-link>
             
             <router-link 
-              v-if="userProfile?.rol === 'director' || userProfile?.rol === 'profesor'" 
+              v-if="userProfile?.rol === 'Director' || userProfile?.rol === 'Profesor'" 
               to="/students" 
               class="nav-link"
             >
               Estudiantes
+            </router-link>
+          <router-link
+              v-if="userProfile?.rol === 'Profesor'" 
+              to="/upload-grades" 
+              class="nav-link"
+            >
+              Subir Notas
             </router-link>
           </div>
 

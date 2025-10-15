@@ -16,6 +16,7 @@ import MyCourses from './views/MyCourses.vue'
 import CourseDetail from './views/CourseDetail.vue'
 import Teachers from './views/Teachers.vue'
 import Students from './views/Students.vue'
+import UploadGrades from './views/UploadGrades.vue'
 
 const routes = [
   { 
@@ -91,6 +92,14 @@ const routes = [
   { 
     path: '/students', 
     component: Students, 
+    meta: { 
+      requiresAuth: true,
+      requiresTeacherOrDirector: true 
+    } 
+  },
+  { 
+    path: '/upload-grades', 
+    component: UploadGrades, 
     meta: { 
       requiresAuth: true,
       requiresTeacherOrDirector: true 
