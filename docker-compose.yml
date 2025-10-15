@@ -30,7 +30,14 @@ services:
     build: ./back/Forum
     ports:
       - "5010:80"
-  
+
+
+  attendance:
+    build: ./back/Attendance
+    ports:
+      - "5004:5000"
+    env_file: ./back/Attendance/.env
+
   tareas:
     build: ./back/Tareas
     ports:

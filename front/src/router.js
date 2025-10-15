@@ -15,6 +15,11 @@ import Base from './views/BD.vue'
 import Courses from './views/Courses.vue'
 import MyCourses from './views/MyCourses.vue'
 import CourseDetail from './views/CourseDetail.vue'
+import Attendance from './views/Attendance.vue'
+import Excuses from './views/Excuses.vue'
+import ExcusesManagement from './views/ExcusesManagement.vue'
+import AttendanceHistory from './views/AttendanceHistory.vue'
+import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
 // Rutas
 
@@ -39,7 +44,94 @@ const routes = [
     name: 'assignments', 
     component: AssignmentsView, 
     meta: { requiresAuth: true } 
-  },{ path: '/:pathMatch(.*)*', redirect: '/signin' }
+
+  },
+  { 
+    path: '/foro', 
+    component: Foro, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/features', 
+    component: Features, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/pricing', 
+    component: Pricing, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/info', 
+    component: Info, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/contact', 
+    component: Contact, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/nosotros', 
+    component: Nosotros, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/base', 
+    component: Base, 
+    meta: { 
+      requiresAuth: true,
+      requiresDirector: true 
+    } 
+  },
+  { 
+    path: '/courses', 
+    component: Courses, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/my-courses', 
+    component: MyCourses, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/courses/:id', 
+    component: CourseDetail, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/attendance', 
+    component: Attendance, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/excuses', 
+    component: Excuses, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/excuses/manage', 
+    component: ExcusesManagement, 
+    meta: { 
+      requiresAuth: true,
+      requiresDirector: true 
+    } 
+  },
+  { 
+    path: '/attendance/history', 
+    component: AttendanceHistory, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/excuses/history', 
+    component: ExcusesHistory, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/:pathMatch(.*)*', 
+    redirect: '/signin'
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
 
 

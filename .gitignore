@@ -12,6 +12,9 @@ obj/
 packages/
 .nuget/
 
+node_modules/
+
+
 # Docker
 **/out/
 **/docker-compose.override.yml
@@ -21,3 +24,4 @@ packages/
 
 # Config locales
 appsettings.Development.json
+readme.md
