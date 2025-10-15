@@ -216,7 +216,7 @@ class AttendanceController:
         
         schema = tenant_info["schema_name"]
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["profesor", "director", "admin", "Profesor", "Director"]:
+        if not user_data or user_data.get("rol") not in ["Profesor", "Director", "Admin"]:
             raise HTTPException(status_code=403, detail="No tienes permisos para ver el historial")
         
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -247,7 +247,7 @@ class AttendanceController:
         schema = tenant_info["schema_name"]
         
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["profesor", "director", "admin"]:
+        if not user_data or user_data.get("rol") not in ["Profesor", "Director"]:
             raise HTTPException(status_code=403, detail="No tienes permisos para actualizar asistencia")
         
         async with httpx.AsyncClient(timeout=10.0) as client:

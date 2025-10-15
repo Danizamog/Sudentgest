@@ -213,8 +213,12 @@ class CourseController:
         
         # Verificar que el usuario tenga permisos (profesor del curso o director)
         user_data = await get_user_by_email(email, schema)
-        if not user_data or user_data.get("rol") not in ["director", "admin"]:
-            raise HTTPException(status_code=403, detail="No tienes permisos")
+        if not user_data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # 🔹 AÑADIR ESTAS LÍNEAS QUE FALTABAN
+        user_rol = user_data.get("rol", "").lower()
+        user_id = user_data["id"]
         
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {
