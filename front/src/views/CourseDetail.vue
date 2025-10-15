@@ -226,7 +226,7 @@ async function fetchCourseDetail() {
 
     if (enrollmentsResponse.ok) {
       const data = await enrollmentsResponse.json()
-      inscritos.value = data.inscripciones || []
+      inscritos.value = data.inscritos || []
     } else {
       error.value = 'Error al cargar inscritos'
     }
