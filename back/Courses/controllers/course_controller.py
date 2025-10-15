@@ -216,7 +216,7 @@ class CourseController:
         if not user_data:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        # 🔹 AÑADIR ESTAS LÍNEAS QUE FALTABAN
+        # 🔹 CORRECCIÓN: Normalizar comparación de roles
         user_rol = user_data.get("rol", "").lower()
         user_id = user_data["id"]
         
@@ -226,11 +226,11 @@ class CourseController:
                 "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
             }
             
-            # Si es profesor, verificar que esté inscrito en el curso
+            # Si es profesor, verificar que esté asignado al curso (profesor_id en tabla cursos)
             if user_rol == "profesor":
-                inscripciones_table = f"{schema}_inscripciones"
+                cursos_table = f"{schema}_cursos"
                 check_response = await client.get(
-                    f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&usuario_id=eq.{user_id}&select=id",
+                    f"{SUPABASE_URL}/rest/v1/{cursos_table}?id=eq.{curso_id}&profesor_id=eq.{user_id}&select=id",
                     headers=headers
                 )
                 
@@ -239,14 +239,13 @@ class CourseController:
                         status_code=403, 
                         detail="No tienes permiso para ver los estudiantes de este curso"
                     )
+            elif user_rol not in ["director", "admin"]:
+                raise HTTPException(status_code=403, detail="No tienes permisos suficientes")
             
-            # Si es director o profesor autorizado, obtener inscripciones
+            # Obtener inscripciones del curso CON ID
             inscripciones_table = f"{schema}_inscripciones"
-            usuarios_table = f"{schema}_usuarios"
-            
-            # Obtener inscripciones del curso
             inscripciones_response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&select=usuario_id",
+                f"{SUPABASE_URL}/rest/v1/{inscripciones_table}?curso_id=eq.{curso_id}&select=id,usuario_id,created_at",
                 headers=headers
             )
             
@@ -255,7 +254,7 @@ class CourseController:
                 usuario_ids = [insc["usuario_id"] for insc in inscripciones]
                 
                 if not usuario_ids:
-                    return {"curso_id": curso_id, "inscritos": []}
+                    return {"inscripciones": []}
                 
                 # Obtener datos de usuarios
                 usuarios_table = f"{schema}_usuarios"
@@ -282,7 +281,7 @@ class CourseController:
                                 "rol": usuario["rol"],
                                 "fecha_inscripcion": insc.get("created_at")
                             })
-                    return {"curso_id": curso_id, "total": len(inscritos), "inscritos": inscritos}
+                    return {"inscripciones": inscritos}
                 else:
                     raise HTTPException(status_code=500, detail="Error al obtener usuarios")
             else:
