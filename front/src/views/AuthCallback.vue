@@ -2,17 +2,20 @@
   <div class="callback-container">
     <div class="loading-spinner"></div>
     <p>Procesando autenticación...</p>
+    <p v-if="debug" style="font-size: 0.8rem; margin-top: 10px;">Debug: Componente montado</p>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 
 const router = useRouter()
+const debug = ref(true)
 
-// 🔹 FUNCIÓN: Obtener tenant del email
+console.log('🔄 AuthCallback.vue - Script ejecutándose')
+
 function getTenantFromEmail(email) {
   if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
   if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
@@ -20,7 +23,31 @@ function getTenantFromEmail(email) {
   return null
 }
 
-// 🔹 FUNCIÓN: Hacer sync del usuario
+async function setSessionCookie(session) {
+  try {
+    console.log('🔄 Intentando establecer cookie...')
+    const response = await fetch('/auth/session-cookie', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      console.log('✅ Cookie de sesión establecida')
+      return true
+    } else {
+      console.error('❌ Error estableciendo cookie:', response.status)
+      return false
+    }
+  } catch (error) {
+    console.error('❌ Error en setSessionCookie:', error)
+    return false
+  }
+}
+
 async function syncUser(session) {
   try {
     const userEmail = session.user?.email
@@ -35,11 +62,9 @@ async function syncUser(session) {
       return false
     }
 
-    const backendUrl = window.location.hostname === 'localhost' ? 'http://localhost:5002' : '/api/auth'
-    
     console.log('🔹 Llamando a sync-user...', { email: userEmail, tenant })
     
-    const response = await fetch(`${backendUrl}/api/auth/sync-user`, {
+    const response = await fetch('/auth/sync-user', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
@@ -64,11 +89,15 @@ async function syncUser(session) {
 }
 
 onMounted(async () => {
+  console.log('✅ AuthCallback.vue - Componente montado')
+  
   try {
     console.log('🔄 Procesando callback de OAuth...')
     
     // Obtener la sesión después del redirect de OAuth
     const { data: { session }, error } = await supabase.auth.getSession()
+    
+    console.log('🔹 Resultado de getSession:', { session: !!session, error })
     
     if (error) {
       console.error('❌ Error en callback:', error)
@@ -78,16 +107,28 @@ onMounted(async () => {
     
     if (session) {
       console.log('✅ Sesión obtenida correctamente en callback')
+      console.log('🔹 User email:', session.user?.email)
       
-      // Guardar el token
+      // Guardar en localStorage (compatibilidad)
       localStorage.setItem('token', session.access_token)
+      localStorage.setItem('user_id', session.user.id)
       
-      // 🔹 HACER SYNC DEL USUARIO ANTES DE REDIRIGIR
-      console.log('🔄 Sincronizando usuario...')
-      await syncUser(session)
+      // 🔹 PRIMERO: Establecer cookie HttpOnly
+      console.log('🔄 Estableciendo cookie de sesión...')
+      const cookieSuccess = await setSessionCookie(session)
       
-      // Redirigir al home
-      router.push('/home')
+      if (cookieSuccess) {
+        // 🔹 SEGUNDO: Hacer sync del usuario
+        console.log('🔄 Sincronizando usuario...')
+        await syncUser(session)
+        
+        // Redirigir al home
+        console.log('✅ Redirigiendo a /home...')
+        router.push('/home')
+      } else {
+        console.error('❌ Falló el establecimiento de cookie, redirigiendo a signin')
+        router.push('/signin?error=cookie_failed')
+      }
     } else {
       console.warn('⚠️ No se encontró sesión en callback')
       router.push('/signin?error=no_session')

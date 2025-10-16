@@ -4,7 +4,7 @@
       <div class="header">
         <button @click="$router.back()" class="btn-back">← Volver al Curso</button>
         <h1>Tareas - {{ curso?.nombre }}</h1>
-        <button v-if="userRole === 'teacher'" @click="showCreateModal = true" class="btn-primary">
+        <button v-if="userRole === 'Profesor'" @click="showCreateModal = true" class="btn-primary">
           ➕ Nueva Tarea
         </button>
       </div>
@@ -14,7 +14,7 @@
 
       <div v-else>
         <!-- Estadísticas para profesores -->
-        <div v-if="userRole === 'teacher'" class="stats-grid">
+        <div v-if="userRole === 'Profesor'" class="stats-grid">
           <div class="stat-card">
             <h3>Total Tareas</h3>
             <p class="stat-number">{{ assignments.length }}</p>
@@ -31,11 +31,11 @@
 
         <!-- Lista de tareas -->
         <div class="assignments-section">
-          <h2 v-if="userRole === 'teacher'">Tareas del Curso</h2>
+          <h2 v-if="userRole === 'Profesor'">Tareas del Curso</h2>
           <h2 v-else>Mis Tareas</h2>
           
           <div v-if="assignments.length === 0" class="empty">
-            <p v-if="userRole === 'teacher'">No hay tareas creadas para este curso.</p>
+            <p v-if="userRole === 'Profesor'">No hay tareas creadas para este curso.</p>
             <p v-else>No hay tareas asignadas para este curso.</p>
           </div>
 
@@ -58,7 +58,7 @@
                 </div>
 
                 <!-- Estado para estudiantes -->
-                <div v-if="userRole === 'student'" class="completion-status">
+                <div v-if="userRole === 'Estudiante'" class="completion-status">
                   <span v-if="item.completion" class="status completed">
                     ✅ Completada - {{ formatDate(item.completion.completed_at) }}
                   </span>
@@ -68,7 +68,7 @@
                 </div>
 
                 <!-- Estadísticas para profesores -->
-                <div v-if="userRole === 'teacher' && item.completions" class="completion-stats">
+                <div v-if="userRole === 'Profesor' && item.completions" class="completion-stats">
                   <span class="stats">
                     📊 {{ item.completions.completed }}/{{ item.completions.total }} estudiantes completaron
                   </span>
@@ -77,7 +77,7 @@
 
               <div class="assignment-actions">
                 <button 
-                  v-if="userRole === 'student' && !item.completion"
+                  v-if="userRole === 'Estudiante' && !item.completion"
                   @click="completeAssignment(item.assignment.id)"
                   class="btn-complete"
                   :disabled="completing"
@@ -86,7 +86,7 @@
                 </button>
                 
                 <button 
-                  v-if="userRole === 'teacher'"
+                  v-if="userRole === 'Profesor'"
                   @click="viewAssignmentDetails(item.assignment.id)"
                   class="btn-outline"
                 >

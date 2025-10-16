@@ -21,13 +21,11 @@ import ExcusesManagement from './views/ExcusesManagement.vue'
 import AttendanceHistory from './views/AttendanceHistory.vue'
 import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
-// Rutas
-
 
 const routes = [
-  { path: '/', redirect: '/signin', meta : { hideNavbar: true } },
-  { path: '/signin', component: SignIn },
-  { path: '/auth/callback', component: AuthCallback },
+  { path: '/', redirect: '/signin', meta: { hideNavbar: true } },
+  { path: '/signin', component: SignIn, meta: { hideNavbar: true } },
+  { path: '/auth/callback', component: AuthCallback, meta: { hideNavbar: true } },
   { path: '/home', component: Home, meta: { requiresAuth: true } },
   { path: '/foro', component: Foro, meta: { requiresAuth: true } },
   { path: '/features', component: Features, meta: { requiresAuth: true } },
@@ -39,101 +37,14 @@ const routes = [
   { path: '/courses', component: Courses, meta: { requiresAuth: true } },
   { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true } },
   { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true } },
-  { 
-    path: '/courses/:id/assignments', 
-    name: 'assignments', 
-    component: AssignmentsView, 
-    meta: { requiresAuth: true } 
-
-  },
-  { 
-    path: '/foro', 
-    component: Foro, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/features', 
-    component: Features, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/pricing', 
-    component: Pricing, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/info', 
-    component: Info, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/contact', 
-    component: Contact, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/nosotros', 
-    component: Nosotros, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/base', 
-    component: Base, 
-    meta: { 
-      requiresAuth: true,
-      requiresDirector: true 
-    } 
-  },
-  { 
-    path: '/courses', 
-    component: Courses, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/my-courses', 
-    component: MyCourses, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/courses/:id', 
-    component: CourseDetail, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/attendance', 
-    component: Attendance, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/excuses', 
-    component: Excuses, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/excuses/manage', 
-    component: ExcusesManagement, 
-    meta: { 
-      requiresAuth: true,
-      requiresDirector: true 
-    } 
-  },
-  { 
-    path: '/attendance/history', 
-    component: AttendanceHistory, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/excuses/history', 
-    component: ExcusesHistory, 
-    meta: { requiresAuth: true } 
-  },
-  { 
-    path: '/:pathMatch(.*)*', 
-    redirect: '/signin'
-  },
+  { path: '/courses/:id/assignments', name: 'assignments', component: AssignmentsView, meta: { requiresAuth: true } },
+  { path: '/attendance', component: Attendance, meta: { requiresAuth: true } },
+  { path: '/excuses', component: Excuses, meta: { requiresAuth: true } },
+  { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true } },
+  { path: '/attendance/history', component: AttendanceHistory, meta: { requiresAuth: true } },
+  { path: '/excuses/history', component: ExcusesHistory, meta: { requiresAuth: true } },
   { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
-
 
 const router = createRouter({
   history: createWebHistory(),
@@ -147,18 +58,10 @@ async function getUserRole() {
   if (userRoleCache) return userRoleCache
 
   try {
-    const token = localStorage.getItem('token')
-    if (!token) throw new Error('No token found')
-
-    const backendUrl = window.location.hostname === 'localhost'
-      ? 'http://localhost:5002'
-      : '/api/auth'
-
-    const response = await fetch(`${backendUrl}/api/auth/user-profile`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+    // ✅ CAMBIO: Ruta relativa
+    const response = await fetch('/auth/user-profile', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     })
 
     if (response.ok) {
@@ -174,24 +77,39 @@ async function getUserRole() {
   }
 }
 
-// Guardia de navegación
+async function checkAuthentication() {
+  try {
+    // ✅ CAMBIO: Ruta relativa
+    const response = await fetch('/auth/check-cookie', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return data.authenticated
+    }
+    return false
+  } catch (error) {
+    return false
+  }
+}
+
 router.beforeEach(async (to, from, next) => {
   try {
-    const { data: user } = await supabase.auth.getUser()
-    const token = localStorage.getItem('token')
-    const isAuthenticated = !!(user && token)
+    const isAuthenticated = await checkAuthentication()
 
     if (to.meta.requiresAuth) {
       if (!isAuthenticated) {
+        // Limpiar localStorage por si acaso
         localStorage.removeItem('token')
+        localStorage.removeItem('user_id')
         return next('/signin')
       }
 
       if (to.meta.requiresDirector) {
         const userRole = await getUserRole()
-        if (userRole !== 'Director') {
-          return next('/home')
-        }
+        if (userRole !== 'Director') return next('/home')
       }
 
       next()
@@ -201,12 +119,13 @@ router.beforeEach(async (to, from, next) => {
       next()
     }
   } catch (error) {
+    console.error('Error en router guard:', error)
     localStorage.removeItem('token')
+    localStorage.removeItem('user_id')
     next('/signin')
   }
 })
 
-// Limpiar cache de rol si cambia la sesión
 supabase.auth.onAuthStateChange(() => {
   userRoleCache = null
 })

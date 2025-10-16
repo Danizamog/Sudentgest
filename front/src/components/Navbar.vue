@@ -29,7 +29,7 @@
               v-if="userProfile?.rol === 'Director'" 
               to="/base" 
               class="nav-link admin-link"
-            >Roles </router-link>
+            >Roles</router-link>
             <router-link 
               v-if="['Profesor'].includes(userProfile?.rol)" 
               to="/attendance" 
@@ -46,7 +46,7 @@
               Gestionar Excusas
             </router-link>
             <router-link 
-              v-if="['Profesor', 'Padre', 'Admin' ].includes(userProfile?.rol)" 
+              v-if="['Profesor', 'Padre', 'Admin'].includes(userProfile?.rol)" 
               to="/excuses" 
               class="nav-link"
             >
@@ -94,7 +94,6 @@
               <router-link to="/nosotros" class="nav-link" @click="toggleMobileMenu">Nosotros</router-link>
               <router-link to="/courses" class="nav-link" @click="toggleMobileMenu">Cursos</router-link>
               <router-link to="/my-courses" class="nav-link" @click="toggleMobileMenu">Mis Cursos</router-link>
-              
 
               <router-link 
                 v-if="userProfile?.rol === 'Director'" 
@@ -133,70 +132,83 @@ const showNavbar = computed(() => {
   return isAuthenticated.value && !hideOnRoutes.includes(route.path)
 })
 
+// 🔹 ELIMINAR getBackendUrl() y usar siempre rutas relativas
+
+// Obtener perfil del usuario usando solo cookies
 async function getUserProfile() {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-
-    const token = localStorage.getItem('token')
-    if (!token) return null
-
-    const tenant = getTenantFromEmail(user.email)
-    if (!tenant) return null
-
-    const backendUrl = window.location.hostname === 'localhost' ? 'http://localhost:5002' : '/api/auth'
-    
-    const response = await fetch(`${backendUrl}/api/auth/user-profile`, {
+    // ✅ CAMBIO: Ruta relativa en lugar de localhost:5002
+    const response = await fetch('/auth/user-profile', {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     })
 
     if (response.ok) {
-      const profileData = await response.json()
-      userProfile.value = profileData
+      userProfile.value = await response.json()
+      isAuthenticated.value = true
+      return userProfile.value
     } else {
-      userProfile.value = {
-        nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario',
-        email: user.email,
-        rol: 'Estudiante'
-      }
+      isAuthenticated.value = false
+      userProfile.value = null
+      return null
     }
-    
   } catch (error) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      userProfile.value = {
-        nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario',
-        email: user.email,
-        rol: 'Estudiante'
-      }
-    }
+    console.error('Error obteniendo perfil:', error)
+    isAuthenticated.value = false
+    userProfile.value = null
+    return null
   }
 }
 
-function getTenantFromEmail(email) {
-  if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
-  if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
-  if (email.endsWith('@gmail.com')) return 'gmail.com'
-  return null
-}
-
+// Verificar autenticación
 async function checkAuth() {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = localStorage.getItem('token')
-    
-    isAuthenticated.value = !!(session && token)
-    
-    if (isAuthenticated.value) {
-      await getUserProfile()
-    } else {
-      userProfile.value = null
+    // ✅ CAMBIO: Ruta relativa
+    const checkResponse = await fetch('/auth/check-cookie', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+
+    if (checkResponse.ok) {
+      const data = await checkResponse.json()
+      if (data.authenticated) {
+        isAuthenticated.value = true
+        await getUserProfile()
+        return
+      }
     }
+
+    // Si no hay cookie válida, verificar con Supabase
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      // Si hay sesión en Supabase pero no cookie, establecer cookie
+      const token = session.access_token
+      
+      // ✅ CAMBIO: Ruta relativa
+      const cookieResponse = await fetch('/auth/session-cookie', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      })
+
+      if (cookieResponse.ok) {
+        isAuthenticated.value = true
+        await getUserProfile()
+        return
+      }
+    }
+
+    // Si no hay autenticación
+    isAuthenticated.value = false
+    userProfile.value = null
+
   } catch (error) {
+    console.error('Error en checkAuth:', error)
     isAuthenticated.value = false
     userProfile.value = null
   }
@@ -223,30 +235,42 @@ function setupListeners() {
   })
 
   return () => {
-    subscription?.unsubscribe()
-    removeRouteListener()
+    try { subscription?.unsubscribe() } catch {}
+    try { removeRouteListener() } catch {}
   }
 }
 
 async function handleLogout() {
   try {
     loading.value = true
-    
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    
+
+    // Limpiar Supabase
+    try { await supabase.auth.signOut() } catch {}
+
+    // Limpiar cookie en el backend
+    try {
+      // ✅ CAMBIO: Ruta relativa
+      await fetch('/auth/clear-cookie', {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (e) {
+      console.warn('clear-cookie failed:', e)
+    }
+
+    // Limpiar localStorage (por si acaso)
     localStorage.removeItem('token')
+    localStorage.removeItem('user_id')
+
+    // Resetear estado
     isAuthenticated.value = false
     userProfile.value = null
     mobileMenuOpen.value = false
     document.body.style.overflow = 'auto'
-    
-    router.push('/signin')
 
+    router.push('/signin')
   } catch (error) {
-    localStorage.removeItem('token')
-    isAuthenticated.value = false
-    userProfile.value = null
+    console.error('Error durante logout:', error)
     router.push('/signin')
   } finally {
     loading.value = false
@@ -265,10 +289,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Tus estilos CSS existentes se mantienen igual */
 .navbar-wrapper {
   position: sticky;
   top: 0;
-
 }
 
 .container {
@@ -319,7 +343,7 @@ onMounted(() => {
   border: 1px solid;
 }
 
-.user-role.Director {
+.user-role.director {
   background: #10b981;
   color: white;
   border-color: #10b981;
@@ -330,6 +354,7 @@ onMounted(() => {
   color: white;
   border-color: #3b82f6;
 }
+
 .user-role.profesor {
   background: #f68f3b;
   color: white;
