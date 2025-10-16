@@ -343,19 +343,19 @@ onMounted(() => {
   border: 1px solid;
 }
 
-.user-role.director {
+.user-role.Director {
   background: #10b981;
   color: white;
   border-color: #10b981;
 }
 
-.user-role.estudiante {
+.user-role.Estudiante {
   background: #3b82f6;
   color: white;
   border-color: #3b82f6;
 }
 
-.user-role.profesor {
+.user-role.Profesor {
   background: #f68f3b;
   color: white;
   border-color: #f68f3b;

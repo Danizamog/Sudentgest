@@ -366,7 +366,7 @@ app.MapGet("/auth/user-profile", async (HttpContext context) =>
             nombre = user.Value.GetProperty("nombre").GetString() ?? "Usuario",
             apellido = user.Value.GetProperty("apellido").GetString() ?? "",
             email = user.Value.GetProperty("email").GetString() ?? email,
-            rol = user.Value.GetProperty("rol").GetString()?.ToLower() ?? "Estudiante"
+            rol = user.Value.GetProperty("rol").GetString() ?? "Estudiante"
         };
         
         return Results.Ok(profile);
