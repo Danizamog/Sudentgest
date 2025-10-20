@@ -44,3 +44,10 @@ services:
       - "5011:8080"
     env_file:
       - ./back/Tareas/.env
+
+  contact:
+    build: ./back/Contact
+    ports:
+      - "5013:5000"
+    env_file:
+      - ./back/Contact/.env
