@@ -1,0 +1,42 @@
+@Forum_HostAddress = http://localhost:5006
+@Forum_HostAddressHttps = https://localhost:7006
+
+### Get all threads
+GET {{Forum_HostAddress}}/api/forum/threads
+Accept: application/json
+
+### Get threads by category
+GET {{Forum_HostAddress}}/api/forum/threads?category=General
+Accept: application/json
+
+### Search threads
+GET {{Forum_HostAddress}}/api/forum/threads?search=matemáticas
+Accept: application/json
+
+### Get thread by ID
+GET {{Forum_HostAddress}}/api/forum/threads/3fa85f64-5717-4562-b3fc-2c963f66afa6
+Accept: application/json
+
+### Create thread
+POST {{Forum_HostAddress}}/api/forum/threads
+Content-Type: application/json
+
+{
+  "title": "Nuevo tema de discusión",
+  "content": "Contenido del tema de prueba...",
+  "categoryId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "tags": ["matemáticas", "tareas"]
+}
+
+### Create reply
+POST {{Forum_HostAddress}}/api/forum/replies
+Content-Type: application/json
+
+{
+  "content": "Esta es una respuesta de prueba",
+  "threadId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
+
+### Get categories
+GET {{Forum_HostAddress}}/api/forum/categories
+Accept: application/json

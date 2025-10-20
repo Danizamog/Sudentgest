@@ -1,0 +1,46 @@
+services:
+  auth:
+    build: ./back/Auth
+    ports:
+      - "5002:8080"
+    env_file: ./back/Auth/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  courses:
+    build: ./back/Courses
+    ports:
+      - "5008:5000"
+    env_file:
+      - ./back/Courses/.env
+  frontend:
+    build: ./front
+    ports:
+      - "5173:80"
+    env_file: ./front/.env
+  roles:
+    build: ./back/Roles
+    ports:
+      - "5009:8080"
+    env_file:
+      - ./back/Roles/.env
+  forunm:
+    build: ./back/Forum
+    ports:
+      - "5010:80"
+
+
+  attendance:
+    build: ./back/Attendance
+    ports:
+      - "5004:5000"
+    env_file: ./back/Attendance/.env
+
+  tareas:
+    build: ./back/Tareas
+    ports:
+      - "5011:8080"
+    env_file:
+      - ./back/Tareas/.env
