@@ -143,3 +143,42 @@ async def generate_system_overview_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating report: {str(e)}"
         )
+
+
+@router.get("/teacher-dashboard")
+async def get_teacher_dashboard_data(
+    x_user_email: Optional[str] = Header(None)
+):
+    """Get aggregated dashboard data for teacher"""
+    from controllers.dashboard import get_teacher_dashboard_data as get_dashboard
+    
+    tenant_schema = extract_tenant_from_header(x_user_email)
+    
+    try:
+        # Get teacher email to filter their courses
+        dashboard_data = await get_dashboard(tenant_schema, x_user_email)
+        return dashboard_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching dashboard data: {str(e)}"
+        )
+
+
+@router.get("/director-dashboard")
+async def get_director_dashboard_data(
+    x_user_email: Optional[str] = Header(None)
+):
+    """Get aggregated dashboard data for director"""
+    from controllers.dashboard import get_director_dashboard_data as get_dashboard
+    
+    tenant_schema = extract_tenant_from_header(x_user_email)
+    
+    try:
+        dashboard_data = await get_dashboard(tenant_schema)
+        return dashboard_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching dashboard data: {str(e)}"
+        )

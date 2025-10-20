@@ -83,10 +83,24 @@
             </router-link>
             <router-link 
               v-if="userProfile?.rol === 'Profesor'" 
+              to="/teacher-dashboard" 
+              class="nav-link"
+            >
+              📊 Dashboard
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Profesor'" 
               to="/teacher-reports" 
               class="nav-link"
             >
               Reportes
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/director-dashboard" 
+              class="nav-link admin-link"
+            >
+              📊 Dashboard
             </router-link>
             <router-link 
               v-if="userProfile?.rol === 'Director'" 
@@ -166,11 +180,29 @@
               
               <router-link 
                 v-if="userProfile?.rol === 'Profesor'" 
+                to="/teacher-dashboard" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                📊 Dashboard
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Profesor'" 
                 to="/teacher-reports" 
                 class="nav-link"
                 @click="toggleMobileMenu"
               >
                 Reportes
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Director'" 
+                to="/director-dashboard" 
+                class="nav-link admin-link"
+                @click="toggleMobileMenu"
+              >
+                📊 Dashboard
               </router-link>
               
               <router-link 
