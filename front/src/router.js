@@ -38,7 +38,18 @@ const routes = [
   { path: '/courses', component: Courses, meta: { requiresAuth: true } },
   { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true } },
   { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true } },
-  { path: '/courses/:id/assignments', name: 'assignments', component: AssignmentsView, meta: { requiresAuth: true } },
+  { 
+    path: '/assignments', 
+    name: 'assignments',
+    component: AssignmentsView, 
+    meta: { requiresAuth: true } 
+  },
+  { 
+    path: '/courses/:id/assignments', 
+    name: 'course-assignments', 
+    component: AssignmentsView, 
+    meta: { requiresAuth: true } 
+  },
   { path: '/attendance', component: Attendance, meta: { requiresAuth: true } },
   { path: '/excuses', component: Excuses, meta: { requiresAuth: true } },
   { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true } },
@@ -61,79 +72,100 @@ const router = createRouter({
 let userRoleCache = null
 
 async function getUserRole() {
-  if (userRoleCache) return userRoleCache
+  console.log('🔄 Obteniendo rol de usuario...');
+  if (userRoleCache) {
+    console.log('✅ Rol encontrado en cache:', userRoleCache);
+    return userRoleCache;
+  }
 
   try {
-    // ✅ CAMBIO: Ruta relativa
+    console.log('📡 Haciendo fetch a /auth/user-profile...');
     const response = await fetch('/auth/user-profile', {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include'
     })
 
     if (response.ok) {
-      const profile = await response.json()
-      userRoleCache = profile.rol || 'Estudiante'
-      return userRoleCache
+      const profile = await response.json();
+      userRoleCache = profile.rol || 'Estudiante';
+      console.log('✅ Rol obtenido del servidor:', userRoleCache);
+      return userRoleCache;
     }
 
-    throw new Error('Failed to fetch user profile')
+    console.log('❌ Error en respuesta de user-profile:', response.status);
+    throw new Error('Failed to fetch user profile');
   } catch (error) {
-    userRoleCache = 'Estudiante'
-    return userRoleCache
+    console.error('❌ Error obteniendo rol:', error);
+    userRoleCache = 'Estudiante';
+    return userRoleCache;
   }
 }
 
 async function checkAuthentication() {
+  console.log('🔐 Verificando autenticación...');
   try {
-    // ✅ CAMBIO: Ruta relativa
     const response = await fetch('/auth/check-cookie', {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include'
     })
 
     if (response.ok) {
-      const data = await response.json()
-      return data.authenticated
+      const data = await response.json();
+      console.log('✅ Usuario autenticado:', data.authenticated);
+      return data.authenticated;
     }
-    return false
+    console.log('❌ Usuario no autenticado');
+    return false;
   } catch (error) {
-    return false
+    console.error('❌ Error verificando autenticación:', error);
+    return false;
   }
 }
 
 router.beforeEach(async (to, from, next) => {
+  console.log('🚦 Navegando a:', to.path);
+  console.log('📋 Meta:', to.meta);
+  
   try {
-    const isAuthenticated = await checkAuthentication()
+    const isAuthenticated = await checkAuthentication();
 
     if (to.meta.requiresAuth) {
       if (!isAuthenticated) {
-        // Limpiar localStorage por si acaso
-        localStorage.removeItem('token')
-        localStorage.removeItem('user_id')
-        return next('/signin')
+        console.log('❌ No autenticado, redirigiendo a signin');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user_id');
+        return next('/signin');
       }
 
       if (to.meta.requiresDirector) {
-        const userRole = await getUserRole()
-        if (userRole !== 'Director') return next('/home')
+        console.log('🔍 Verificando rol de director...');
+        const userRole = await getUserRole();
+        if (userRole !== 'Director') {
+          console.log('❌ No es director, redirigiendo a home');
+          return next('/home');
+        }
       }
 
-      next()
+      console.log('✅ Navegación permitida');
+      next();
     } else if ((to.path === '/signin' || to.path === '/') && isAuthenticated) {
-      next('/home')
+      console.log('✅ Usuario autenticado, redirigiendo a home');
+      next('/home');
     } else {
-      next()
+      console.log('✅ Navegación libre');
+      next();
     }
   } catch (error) {
-    console.error('Error en router guard:', error)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user_id')
-    next('/signin')
+    console.error('💥 Error en router guard:', error);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user_id');
+    next('/signin');
   }
 })
 
 supabase.auth.onAuthStateChange(() => {
-  userRoleCache = null
+  console.log('🔄 Estado de autenticación cambiado, limpiando cache de rol');
+  userRoleCache = null;
 })
 
 export default router

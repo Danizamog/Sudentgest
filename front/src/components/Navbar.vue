@@ -23,8 +23,19 @@
             <router-link to="/foro" class="nav-link">Foro</router-link>
             <router-link to="/pricing" class="nav-link">Precios</router-link>
             <router-link to="/nosotros" class="nav-link">Nosotros</router-link>
+            
+            <!-- 🔹 NUEVO: Enlace de Tareas -->
+            <router-link 
+              v-if="['Profesor', 'Estudiante'].includes(userProfile?.rol)" 
+              to="/assignments" 
+              class="nav-link"
+            >
+              Tareas
+            </router-link>
+            
             <router-link v-if="userProfile?.rol === 'Director'" to="/courses" class="nav-link">Cursos</router-link>
             <router-link v-if="['Estudiante'].includes(userProfile?.rol)" to="/my-courses" class="nav-link">Mis Cursos</router-link>
+            <router-link v-if="['Profesor'].includes(userProfile?.rol)" to="/my-courses" class="nav-link">Mis Cursos</router-link>
             <router-link 
               v-if="userProfile?.rol === 'Director'" 
               to="/base" 
@@ -95,6 +106,17 @@
               <router-link to="/foro" class="nav-link" @click="toggleMobileMenu">Foro</router-link>
               <router-link to="/pricing" class="nav-link" @click="toggleMobileMenu">Precios</router-link>
               <router-link to="/nosotros" class="nav-link" @click="toggleMobileMenu">Nosotros</router-link>
+              
+              <!-- 🔹 NUEVO: Enlace de Tareas para móvil -->
+              <router-link 
+                v-if="['Profesor', 'Estudiante'].includes(userProfile?.rol)" 
+                to="/assignments" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Tareas
+              </router-link>
+              
               <router-link to="/courses" class="nav-link" @click="toggleMobileMenu">Cursos</router-link>
               <router-link to="/my-courses" class="nav-link" @click="toggleMobileMenu">Mis Cursos</router-link>
 
@@ -135,12 +157,9 @@ const showNavbar = computed(() => {
   return isAuthenticated.value && !hideOnRoutes.includes(route.path)
 })
 
-// 🔹 ELIMINAR getBackendUrl() y usar siempre rutas relativas
-
 // Obtener perfil del usuario usando solo cookies
 async function getUserProfile() {
   try {
-    // ✅ CAMBIO: Ruta relativa en lugar de localhost:5002
     const response = await fetch('/auth/user-profile', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -167,7 +186,6 @@ async function getUserProfile() {
 // Verificar autenticación
 async function checkAuth() {
   try {
-    // ✅ CAMBIO: Ruta relativa
     const checkResponse = await fetch('/auth/check-cookie', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -189,7 +207,6 @@ async function checkAuth() {
       // Si hay sesión en Supabase pero no cookie, establecer cookie
       const token = session.access_token
       
-      // ✅ CAMBIO: Ruta relativa
       const cookieResponse = await fetch('/auth/session-cookie', {
         method: 'POST',
         headers: { 
@@ -252,7 +269,6 @@ async function handleLogout() {
 
     // Limpiar cookie en el backend
     try {
-      // ✅ CAMBIO: Ruta relativa
       await fetch('/auth/clear-cookie', {
         method: 'POST',
         credentials: 'include'
