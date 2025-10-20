@@ -1,14 +1,33 @@
 <template>
   <div id="app">
-    <Navbar />
-    <router-view />
+    <!-- Landing Layout for public pages -->
+    <LandingLayout v-if="currentLayout === 'landing'">
+      <router-view />
+    </LandingLayout>
+
+    <!-- App Layout for authenticated pages with sidebar -->
+    <AppLayout v-else-if="currentLayout === 'app'">
+      <router-view />
+    </AppLayout>
+
+    <!-- No layout (for signin, etc.) -->
+    <router-view v-else />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { supabase } from './supabase'
-import Navbar from './components/Navbar.vue'
+import LandingLayout from './layouts/LandingLayout.vue'
+import AppLayout from './layouts/AppLayout.vue'
+
+const route = useRoute()
+
+// Determine which layout to use based on route meta
+const currentLayout = computed(() => {
+  return route.meta.layout || 'none'
+})
 
 // Función para establecer cookie de sesión cuando hay autenticación
 const handleSession = async (session) => {
@@ -40,7 +59,10 @@ const handleSession = async (session) => {
 onMounted(async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    await handleSession(session)
+    // Only call handleSession if there's actually a session
+    if (session) {
+      await handleSession(session)
+    }
   } catch (error) {
     console.error('Error al obtener sesión:', error)
   }
@@ -57,8 +79,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
 <style>
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  text-align: center;
-  color: #2c3e50;
+  min-height: 100vh;
 }
 </style>

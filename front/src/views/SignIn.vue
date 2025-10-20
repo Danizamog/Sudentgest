@@ -96,8 +96,27 @@ async function handleSignIn() {
       }
     }
 
-    // Redirigir al home
-    router.push('/home')
+    // Get user role and redirect to appropriate dashboard
+    const profileResponse = await fetch('/auth/user-profile', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    
+    if (profileResponse.ok) {
+      const profile = await profileResponse.json()
+      const userRole = profile.rol || 'Estudiante'
+      
+      if (userRole === 'Director') {
+        router.push('/director-dashboard')
+      } else if (userRole === 'Profesor') {
+        router.push('/teacher-dashboard')
+      } else {
+        router.push('/home')
+      }
+    } else {
+      // Fallback to home if profile fetch fails
+      router.push('/home')
+    }
   } catch (e) {
     error.value = e.message || String(e)
   } finally {
