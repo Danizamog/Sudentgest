@@ -11,11 +11,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 🔹 Configuración para Docker - variables de entorno
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL") 
-    ?? throw new ArgumentNullException("SUPABASE_URL no configurado");
+    ?? "https://nnqbpvbcdwcodnradhye.supabase.co";
 var supabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY") 
-    ?? throw new ArgumentNullException("SUPABASE_ANON_KEY no configurado");
+    ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ucWJwdmJjZHdjb2RucmFkaHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5MzYzMTcsImV4cCI6MjA3NDUxMjMxN30.ZYbcRG9D2J0SlhcT9XTzGX5AAW5wuTXPnzmkbC_pGPU";
 var supabaseJwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? supabaseAnonKey;
-
+Console.WriteLine("🚀 ========== INICIANDO SERVICIO TAREAS ==========");
+Console.WriteLine($"🔗 Supabase URL: {supabaseUrl}");
+Console.WriteLine($"🔑 Supabase Key: {supabaseAnonKey?.Substring(0, 20)}...");
+Console.WriteLine($"🌍 Environment: {Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}");
 // 🔹 JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -59,7 +62,6 @@ builder.Services.AddScoped(provider =>
         throw;
     }
 });
-
 // 🔹 CORS para Docker
 builder.Services.AddCors(options =>
 {
@@ -75,7 +77,6 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
-
 var app = builder.Build();
 
 // Configuración del pipeline
@@ -131,28 +132,57 @@ async Task<UserInfo?> GetUserFromToken(string email)
     try
     {
         var tenant = GetTenantFromEmail(email);
-        if (tenant == "unknown") return null;
+        if (tenant == "unknown") 
+        {
+            Console.WriteLine("❌ Tenant desconocido, no se puede obtener usuario");
+            return null;
+        }
 
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Add("apikey", supabaseAnonKey);
         httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {supabaseAnonKey}");
 
+        Console.WriteLine($"🔍 Buscando tenant en: {supabaseUrl}/rest/v1/tenants?domain=eq.{tenant}");
         var tenantResponse = await httpClient.GetAsync($"{supabaseUrl}/rest/v1/tenants?domain=eq.{tenant}&select=*");
-        if (!tenantResponse.IsSuccessStatusCode) return null;
+        
+        Console.WriteLine($"📡 Respuesta tenant: {tenantResponse.StatusCode}");
+        if (!tenantResponse.IsSuccessStatusCode) 
+        {
+            Console.WriteLine($"❌ Error obteniendo tenant: {tenantResponse.StatusCode}");
+            return null;
+        }
 
         var tenantContent = await tenantResponse.Content.ReadAsStringAsync();
+        Console.WriteLine($"📋 Contenido tenant: {tenantContent}");
+        
         var tenants = JsonSerializer.Deserialize<JsonElement[]>(tenantContent);
-        if (tenants?.Length == 0) return null;
+        if (tenants?.Length == 0) 
+        {
+            Console.WriteLine("❌ No se encontró el tenant");
+            return null;
+        }
 
         var schema = tenants[0].GetProperty("schema_name").GetString();
         Console.WriteLine($"✅ Schema identificado: {schema}");
 
         var userResponse = await httpClient.GetAsync($"{supabaseUrl}/rest/v1/{schema}_usuarios?email=eq.{Uri.EscapeDataString(email)}&select=id,rol");
-        if (!userResponse.IsSuccessStatusCode) return null;
+        Console.WriteLine($"📡 Respuesta usuario: {userResponse.StatusCode}");
+        
+        if (!userResponse.IsSuccessStatusCode) 
+        {
+            Console.WriteLine($"❌ Error obteniendo usuario: {userResponse.StatusCode}");
+            return null;
+        }
 
         var userContent = await userResponse.Content.ReadAsStringAsync();
+        Console.WriteLine($"📋 Contenido usuario: {userContent}");
+        
         var users = JsonSerializer.Deserialize<JsonElement[]>(userContent);
-        if (users?.Length == 0) return null;
+        if (users?.Length == 0) 
+        {
+            Console.WriteLine("❌ No se encontró el usuario");
+            return null;
+        }
 
         var user = users[0];
         var userId = user.GetProperty("id").GetInt32();
@@ -164,10 +194,10 @@ async Task<UserInfo?> GetUserFromToken(string email)
     catch (Exception ex)
     {
         Console.WriteLine($"💥 Error obteniendo información del usuario: {ex.Message}");
+        Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
         return null;
     }
 }
-
 async Task<List<AssignmentWithCourseInfo>> GetAllUserAssignments(Client supabase, int userId, string userRole, string tenant)
 {
     Console.WriteLine($"📚 Obteniendo todas las tareas del usuario: {userId}, Rol: {userRole}, Tenant: {tenant}");
@@ -404,7 +434,7 @@ async Task<List<AssignmentInfo>> GetCourseAssignments(Client supabase, int cours
 {
     Console.WriteLine($"🔍 BUSCANDO TAREAS - Curso: {courseId}, Tenant: {tenant}");
     var assignments = new List<AssignmentInfo>();
-    
+
     try
     {
         switch (tenant.ToLower())
@@ -412,40 +442,74 @@ async Task<List<AssignmentInfo>> GetCourseAssignments(Client supabase, int cours
             case "ucb.edu.bo":
                 Console.WriteLine("🔍 Ejecutando query para UCB...");
                 var responseUcb = await supabase.From<AssignmentUcb>()
-                    .Where(x => x.CursoId == courseId && x.IsActive)
-                    .Order(x => x.CreatedAt, Supabase.Postgrest.Constants.Ordering.Descending)
+                    .Where(x => x.CursoId == courseId && x.IsActive == true)
                     .Get();
+
                 Console.WriteLine($"📊 Tareas UCB encontradas: {responseUcb.Models.Count}");
+                Console.WriteLine($"🔍 SQL ejecutado: {responseUcb.ResponseMessage?.RequestMessage?.RequestUri}");
+
+                if (responseUcb.Models.Count > 0)
+                {
+                    foreach (var assignment in responseUcb.Models)
+                    {
+                        Console.WriteLine($"📝 Tarea UCB: ID={assignment.Id}, Title='{assignment.Title}', Curso={assignment.CursoId}");
+                    }
+                }
+
                 assignments = responseUcb.Models.Select(a => new AssignmentInfo(
-                    a.Id, a.Title, a.Description, a.DueDate, a.Points, 
+                    a.Id, a.Title, a.Description, a.DueDate, a.Points,
                     a.AssignmentType, a.CursoId, a.CreatedAt
                 )).ToList();
                 break;
-                
+
             case "upb.edu.bo":
                 Console.WriteLine("🔍 Ejecutando query para UPB...");
                 var responseUpb = await supabase.From<AssignmentUpb>()
-                    .Where(x => x.CursoId == courseId && x.IsActive)
-                    .Order(x => x.CreatedAt, Supabase.Postgrest.Constants.Ordering.Descending)
+                    .Where(x => x.CursoId == courseId && x.IsActive == true)
                     .Get();
+
                 Console.WriteLine($"📊 Tareas UPB encontradas: {responseUpb.Models.Count}");
+                Console.WriteLine($"🔍 SQL ejecutado: {responseUpb.ResponseMessage?.RequestMessage?.RequestUri}");
+
+                if (responseUpb.Models.Count > 0)
+                {
+                    foreach (var assignment in responseUpb.Models)
+                    {
+                        Console.WriteLine($"📝 Tarea UPB: ID={assignment.Id}, Title='{assignment.Title}', Curso={assignment.CursoId}");
+                    }
+                }
+
                 assignments = responseUpb.Models.Select(a => new AssignmentInfo(
-                    a.Id, a.Title, a.Description, a.DueDate, a.Points, 
+                    a.Id, a.Title, a.Description, a.DueDate, a.Points,
                     a.AssignmentType, a.CursoId, a.CreatedAt
                 )).ToList();
                 break;
-                
+
             case "gmail.com":
                 Console.WriteLine("🔍 Ejecutando query para Gmail...");
                 var responseGmail = await supabase.From<AssignmentGmail>()
-                    .Where(x => x.CursoId == courseId && x.IsActive)
-                    .Order(x => x.CreatedAt, Supabase.Postgrest.Constants.Ordering.Descending)
+                    .Where(x => x.CursoId == courseId && x.IsActive == true)
                     .Get();
+
                 Console.WriteLine($"📊 Tareas Gmail encontradas: {responseGmail.Models.Count}");
+                Console.WriteLine($"🔍 SQL ejecutado: {responseGmail.ResponseMessage?.RequestMessage?.RequestUri}");
+
+                if (responseGmail.Models.Count > 0)
+                {
+                    foreach (var assignment in responseGmail.Models)
+                    {
+                        Console.WriteLine($"📝 Tarea Gmail: ID={assignment.Id}, Title='{assignment.Title}', Curso={assignment.CursoId}");
+                    }
+                }
+
                 assignments = responseGmail.Models.Select(a => new AssignmentInfo(
-                    a.Id, a.Title, a.Description, a.DueDate, a.Points, 
+                    a.Id, a.Title, a.Description, a.DueDate, a.Points,
                     a.AssignmentType, a.CursoId, a.CreatedAt
                 )).ToList();
+                break;
+
+            default:
+                Console.WriteLine($"❌ Tenant no soportado: {tenant}");
                 break;
         }
     }
@@ -453,8 +517,12 @@ async Task<List<AssignmentInfo>> GetCourseAssignments(Client supabase, int cours
     {
         Console.WriteLine($"💥 Error obteniendo tareas: {ex.Message}");
         Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"💥 Inner exception: {ex.InnerException.Message}");
+        }
     }
-    
+
     Console.WriteLine($"✅ Tareas retornadas: {assignments.Count}");
     return assignments;
 }
@@ -472,6 +540,7 @@ async Task<List<CourseInfo>> GetProfessorCourses(Client supabase, int profesorId
                 var responseUcb = await supabase.From<CursoUcb>()
                     .Where(x => x.ProfesorId == profesorId)
                     .Get();
+                Console.WriteLine($"📚 Cursos UCB encontrados: {responseUcb.Models.Count}");
                 courses = responseUcb.Models.Select(c => new CourseInfo(c.Id, c.Nombre ?? "Sin nombre", c.Codigo ?? "Sin código")).ToList();
                 break;
                 
@@ -479,6 +548,7 @@ async Task<List<CourseInfo>> GetProfessorCourses(Client supabase, int profesorId
                 var responseUpb = await supabase.From<CursoUpb>()
                     .Where(x => x.ProfesorId == profesorId)
                     .Get();
+                Console.WriteLine($"📚 Cursos UPB encontrados: {responseUpb.Models.Count}");
                 courses = responseUpb.Models.Select(c => new CourseInfo(c.Id, c.Nombre ?? "Sin nombre", c.Codigo ?? "Sin código")).ToList();
                 break;
                 
@@ -486,20 +556,25 @@ async Task<List<CourseInfo>> GetProfessorCourses(Client supabase, int profesorId
                 var responseGmail = await supabase.From<CursoGmail>()
                     .Where(x => x.ProfesorId == profesorId)
                     .Get();
+                Console.WriteLine($"📚 Cursos Gmail encontrados: {responseGmail.Models.Count}");
                 courses = responseGmail.Models.Select(c => new CourseInfo(c.Id, c.Nombre ?? "Sin nombre", c.Codigo ?? "Sin código")).ToList();
                 break;
         }
         
         Console.WriteLine($"✅ Cursos del profesor: {courses.Count}");
+        foreach (var course in courses)
+        {
+            Console.WriteLine($"📖 Curso: ID={course.Id}, Nombre='{course.Nombre}'");
+        }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"💥 Error obteniendo cursos del profesor: {ex.Message}");
+        Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
     }
     
     return courses;
 }
-
 async Task<List<CourseInfo>> GetStudentCourses(Client supabase, int studentId, string tenant)
 {
     Console.WriteLine($"👨‍🎓 Obteniendo cursos del estudiante: {studentId}, Tenant: {tenant}");
@@ -949,6 +1024,8 @@ app.MapGet("/api/courses/{courseId}/assignments", async (HttpContext context, in
             return Results.Unauthorized();
         }
 
+        Console.WriteLine($"🎯 Usuario: {email}, Curso: {courseId}");
+
         var user = await GetUserFromToken(email);
         if (user == null) 
         {
@@ -963,8 +1040,12 @@ app.MapGet("/api/courses/{courseId}/assignments", async (HttpContext context, in
             return Results.BadRequest("Tenant no identificado");
         }
 
+        Console.WriteLine($"👤 Usuario: ID={user.Id}, Rol={user.Rol}, Tenant={tenant}");
+
         // Verificar que el usuario tiene acceso al curso
         var hasAccess = await IsUserEnrolledInCourse(supabase, user.Id, courseId, tenant, user.Rol);
+        Console.WriteLine($"🔐 Usuario tiene acceso al curso: {hasAccess}");
+        
         if (!hasAccess)
         {
             Console.WriteLine("❌ Usuario no tiene acceso al curso");
@@ -976,6 +1057,7 @@ app.MapGet("/api/courses/{courseId}/assignments", async (HttpContext context, in
         
         // Obtener nombre del curso
         var courseName = await GetCourseName(supabase, courseId, tenant);
+        Console.WriteLine($"📚 Nombre del curso: {courseName}");
         
         // Para estudiantes, agregar información de completion
         var result = new List<object>();
@@ -1031,10 +1113,10 @@ app.MapGet("/api/courses/{courseId}/assignments", async (HttpContext context, in
     catch (Exception ex)
     {
         Console.WriteLine($"💥 Error obteniendo tareas: {ex.Message}");
+        Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
         return Results.Problem("Error interno del servidor");
     }
 }).RequireAuthorization();
-
 // 🔹 CREAR TAREA
 app.MapPost("/api/courses/{courseId}/assignments", async (HttpContext context, int courseId, [FromBody] AssignmentRequest request, [FromServices] Client supabase) =>
 {
@@ -1049,7 +1131,8 @@ app.MapPost("/api/courses/{courseId}/assignments", async (HttpContext context, i
             return Results.Unauthorized();
         }
 
-        Console.WriteLine($"📦 Datos recibidos: Title='{request.Title}', AssignmentType='{request.AssignmentType}', CursoId={request.CursoId}");
+        Console.WriteLine($"📦 Datos recibidos de: {email}");
+        Console.WriteLine($"📦 Request: Title='{request.Title}', CourseId={request.CursoId}, Type='{request.AssignmentType}'");
 
         var user = await GetUserFromToken(email);
         if (user == null) 
@@ -1071,8 +1154,12 @@ app.MapPost("/api/courses/{courseId}/assignments", async (HttpContext context, i
             return Results.BadRequest("Tenant no identificado");
         }
 
+        Console.WriteLine($"👤 Profesor: ID={user.Id}, Tenant={tenant}");
+
         // Verificar que el profesor está asignado al curso
         var hasAccess = await IsUserEnrolledInCourse(supabase, user.Id, courseId, tenant, user.Rol);
+        Console.WriteLine($"🔐 Profesor asignado al curso: {hasAccess}");
+        
         if (!hasAccess)
         {
             Console.WriteLine("❌ Profesor no asignado al curso");
@@ -1080,6 +1167,7 @@ app.MapPost("/api/courses/{courseId}/assignments", async (HttpContext context, i
         }
 
         // 🔥 CREAR TAREA
+        Console.WriteLine("🔥 Iniciando creación de tarea...");
         var assignmentId = await CreateAssignment(supabase, request, user.Id, tenant);
         
         if (assignmentId > 0)
@@ -1099,10 +1187,13 @@ app.MapPost("/api/courses/{courseId}/assignments", async (HttpContext context, i
     {
         Console.WriteLine($"💥 Error en endpoint crear tarea: {ex.Message}");
         Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"💥 Inner exception: {ex.InnerException.Message}");
+        }
         return Results.Problem("Error interno del servidor");
     }
 }).RequireAuthorization();
-
 // 🔹 OBTENER CURSOS DEL USUARIO
 app.MapGet("/api/my-courses", async (HttpContext context, [FromServices] Client supabase) =>
 {
@@ -1112,14 +1203,16 @@ app.MapGet("/api/my-courses", async (HttpContext context, [FromServices] Client 
         var email = context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
         if (string.IsNullOrEmpty(email))
         {
-            Console.WriteLine("❌ Usuario no autenticado");
+            Console.WriteLine("❌ Usuario no autenticado - Claim email no encontrado");
             return Results.Unauthorized();
         }
+
+        Console.WriteLine($"🎯 Usuario autenticado: {email}");
 
         var user = await GetUserFromToken(email);
         if (user == null) 
         {
-            Console.WriteLine("❌ Usuario no encontrado");
+            Console.WriteLine("❌ Usuario no encontrado en base de datos");
             return Results.NotFound("Usuario no encontrado");
         }
 
@@ -1130,16 +1223,21 @@ app.MapGet("/api/my-courses", async (HttpContext context, [FromServices] Client 
             return Results.BadRequest("Tenant no identificado");
         }
 
+        Console.WriteLine($"👤 Procesando: UserId={user.Id}, Rol={user.Rol}, Tenant={tenant}");
+
         List<CourseInfo> courses;
         if (user.Rol == "Profesor")
         {
+            Console.WriteLine("👨‍🏫 Obteniendo cursos del profesor...");
             courses = await GetProfessorCourses(supabase, user.Id, tenant);
         }
         else
         {
+            Console.WriteLine("👨‍🎓 Obteniendo cursos del estudiante...");
             courses = await GetStudentCourses(supabase, user.Id, tenant);
         }
 
+        Console.WriteLine($"✅ Retornando {courses.Count} cursos para {email}");
         return Results.Ok(new { 
             cursos = courses,
             userRole = user.Rol
@@ -1148,10 +1246,10 @@ app.MapGet("/api/my-courses", async (HttpContext context, [FromServices] Client 
     catch (Exception ex)
     {
         Console.WriteLine($"💥 Error obteniendo cursos: {ex.Message}");
+        Console.WriteLine($"💥 Stack trace: {ex.StackTrace}");
         return Results.Problem("Error interno del servidor");
     }
 }).RequireAuthorization();
-
 // 🔹 ENDPOINTS DE DIAGNÓSTICO
 app.MapGet("/api/debug/supabase", async ([FromServices] Client supabase) =>
 {
@@ -1278,6 +1376,165 @@ app.MapGet("/api/debug/courses/{courseId}/assignments", async (HttpContext conte
     }
 }).RequireAuthorization();
 
+app.MapGet("/api/debug/full-diagnostics", async (HttpContext context, [FromServices] Client supabase) =>
+{
+    Console.WriteLine("🔍 ========== DIAGNÓSTICO COMPLETO ==========");
+    
+    try
+    {
+        var email = context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+        if (string.IsNullOrEmpty(email))
+        {
+            return Results.Ok(new { error = "No autenticado", step = "auth" });
+        }
+
+        Console.WriteLine($"👤 Usuario autenticado: {email}");
+        
+        var diagnostics = new List<object>();
+        
+        // 1. Diagnóstico de tenant
+        var tenant = GetTenantFromEmail(email);
+        diagnostics.Add(new { step = "tenant", email = email, tenant = tenant });
+        
+        // 2. Diagnóstico de usuario
+        var user = await GetUserFromToken(email);
+        diagnostics.Add(new { 
+            step = "user", 
+            found = user != null, 
+            userId = user?.Id, 
+            userRole = user?.Rol 
+        });
+
+        if (user == null)
+        {
+            return Results.Ok(new { 
+                status = "Usuario no encontrado", 
+                diagnostics = diagnostics 
+            });
+        }
+
+        // 3. Diagnóstico de cursos
+        List<CourseInfo> courses;
+        if (user.Rol == "Profesor")
+        {
+            courses = await GetProfessorCourses(supabase, user.Id, tenant);
+        }
+        else
+        {
+            courses = await GetStudentCourses(supabase, user.Id, tenant);
+        }
+        
+        diagnostics.Add(new { 
+            step = "courses", 
+            count = courses.Count,
+            courses = courses.Select(c => new { c.Id, c.Nombre, c.Codigo })
+        });
+
+        // 4. Diagnóstico de tareas por curso
+        var assignmentsByCourse = new List<object>();
+        foreach (var course in courses.Take(3)) // Solo primeros 3 cursos para no saturar
+        {
+            var assignments = await GetCourseAssignments(supabase, course.Id, tenant);
+            assignmentsByCourse.Add(new {
+                courseId = course.Id,
+                courseName = course.Nombre,
+                assignmentsCount = assignments.Count,
+                assignments = assignments.Select(a => new { a.Id, a.Title, a.CursoId })
+            });
+        }
+        
+        diagnostics.Add(new { 
+            step = "assignments_by_course",
+            data = assignmentsByCourse
+        });
+
+        // 5. Diagnóstico de tablas de assignments
+        var tableTests = new List<object>();
+        
+        // Probar cada tabla de assignments
+        try
+        {
+            var testUcb = await supabase.From<AssignmentUcb>()
+                .Where(x => x.IsActive == true)
+                .Limit(2)
+                .Get();
+            tableTests.Add(new {
+                table = "tenant_ucb_assignments",
+                success = true,
+                count = testUcb.Models.Count,
+                sample = testUcb.Models.Select(a => new { a.Id, a.Title, a.CursoId })
+            });
+        }
+        catch (Exception ex)
+        {
+            tableTests.Add(new {
+                table = "tenant_ucb_assignments", 
+                success = false, 
+                error = ex.Message 
+            });
+        }
+
+        try
+        {
+            var testUpb = await supabase.From<AssignmentUpb>()
+                .Where(x => x.IsActive == true)
+                .Limit(2)
+                .Get();
+            tableTests.Add(new {
+                table = "tenant_upb_assignments",
+                success = true,
+                count = testUpb.Models.Count,
+                sample = testUpb.Models.Select(a => new { a.Id, a.Title, a.CursoId })
+            });
+        }
+        catch (Exception ex)
+        {
+            tableTests.Add(new {
+                table = "tenant_upb_assignments", 
+                success = false, 
+                error = ex.Message 
+            });
+        }
+
+        try
+        {
+            var testGmail = await supabase.From<AssignmentGmail>()
+                .Where(x => x.IsActive == true)
+                .Limit(2)
+                .Get();
+            tableTests.Add(new {
+                table = "tenant_gmail_assignments",
+                success = true,
+                count = testGmail.Models.Count,
+                sample = testGmail.Models.Select(a => new { a.Id, a.Title, a.CursoId })
+            });
+        }
+        catch (Exception ex)
+        {
+            tableTests.Add(new {
+                table = "tenant_gmail_assignments", 
+                success = false, 
+                error = ex.Message 
+            });
+        }
+
+        diagnostics.Add(new { 
+            step = "table_tests",
+            tables = tableTests
+        });
+
+        return Results.Ok(new {
+            status = "Diagnóstico completado",
+            user_info = new { id = user.Id, rol = user.Rol, email = email, tenant = tenant },
+            diagnostics = diagnostics
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"💥 Error en diagnóstico completo: {ex.Message}");
+        return Results.Problem($"Error: {ex.Message}");
+    }
+}).RequireAuthorization();
 // Método helper para obtener nombres de columnas
 static List<string> GetColumnNames(object obj)
 {

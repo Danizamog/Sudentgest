@@ -20,6 +20,11 @@
         >
           ➕ Nueva Tarea (Sin Cursos)
         </button>
+        
+        <!-- Botón de diagnóstico -->
+        <button @click="runFullDiagnostics" class="btn-diagnostic" :disabled="runningDiagnostics">
+          {{ runningDiagnostics ? '🔍 Ejecutando...' : '🔧 Diagnóstico' }}
+        </button>
       </div>
 
       <!-- Header para tareas de un curso específico -->
@@ -29,6 +34,18 @@
         <button v-if="userRole === 'Profesor'" @click="showCreateModal = true" class="btn-primary">
           ➕ Nueva Tarea
         </button>
+        
+        <!-- Botón de diagnóstico -->
+        <button @click="runFullDiagnostics" class="btn-diagnostic" :disabled="runningDiagnostics">
+          {{ runningDiagnostics ? '🔍 Ejecutando...' : '🔧 Diagnóstico' }}
+        </button>
+      </div>
+
+      <!-- Resultados de Diagnóstico -->
+      <div v-if="diagnosticsResult" class="diagnostics-result">
+        <h3>📊 Resultados del Diagnóstico</h3>
+        <pre>{{ JSON.stringify(diagnosticsResult, null, 2) }}</pre>
+        <button @click="diagnosticsResult = null" class="btn-outline">Cerrar</button>
       </div>
 
       <!-- Debug Info -->
@@ -42,6 +59,7 @@
           <div><strong>Assignments:</strong> {{ assignments.length }}</div>
           <div><strong>Loading:</strong> {{ loading }}</div>
           <div><strong>Error:</strong> {{ error }}</div>
+          <div><strong>TAREAS_API:</strong> {{ TAREAS_API }}</div>
         </div>
       </div>
 
@@ -71,7 +89,7 @@
         <p>❌ {{ error }}</p>
         <div class="error-actions">
           <button @click="fetchAssignments" class="btn-outline">Reintentar</button>
-          <button @click="loadSampleData" class="btn-outline">Cargar Datos de Ejemplo</button>
+          <button @click="runFullDiagnostics" class="btn-outline">Ejecutar Diagnóstico</button>
           <button @click="debugMode = !debugMode" class="btn-outline">
             {{ debugMode ? 'Ocultar Debug' : 'Mostrar Debug' }}
           </button>
@@ -309,6 +327,8 @@ const selectedCourseId = ref('')
 const selectedCourseForAssignment = ref(null)
 const debugMode = ref(false)
 const loadingDetails = ref('')
+const runningDiagnostics = ref(false)
+const diagnosticsResult = ref(null)
 
 const newAssignment = ref({
   title: '',
@@ -346,7 +366,48 @@ function formatDate(dateString) {
     minute: '2-digit'
   })
 }
+async function runFullDiagnostics() {
+  console.log('🔍 ========== EJECUTANDO DIAGNÓSTICO COMPLETO ==========');
+  
+  try {
+    runningDiagnostics.value = true
+    diagnosticsResult.value = null
+    
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      console.log('❌ No hay sesión para diagnóstico');
+      diagnosticsResult.value = { error: 'No autenticado' }
+      return
+    }
 
+    console.log('👤 Ejecutando diagnóstico para:', session.user.email);
+
+    const response = await fetch(`${TAREAS_API}/api/debug/full-diagnostics`, {
+      method: 'GET',
+      headers: { 
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    console.log('📡 Respuesta de diagnóstico:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json()
+      console.log('✅ Diagnóstico completado:', data);
+      diagnosticsResult.value = data
+    } else {
+      const errorText = await response.text()
+      console.log('❌ Error en diagnóstico:', errorText);
+      diagnosticsResult.value = { error: `HTTP ${response.status}: ${errorText}` }
+    }
+  } catch (e) {
+    console.error('💥 Error en diagnóstico:', e);
+    diagnosticsResult.value = { error: e.message }
+  } finally {
+    runningDiagnostics.value = false
+  }
+}
 async function fetchAssignedCourses() {
   console.log('📚 ========== INICIANDO OBTENCIÓN DE CURSOS ASIGNADOS ==========');
   loadingDetails.value = 'Obteniendo cursos asignados...';
@@ -516,22 +577,11 @@ async function fetchAssignments() {
       console.log('❌ Error en respuesta de tareas:', errorText);
       error.value = `Error al cargar tareas: ${assignmentsResponse.status} ${assignmentsResponse.statusText}`
       loadingDetails.value = `Error: ${assignmentsResponse.status}`;
-      
-      // Mostrar datos de ejemplo si hay error
-      if (assignments.value.length === 0) {
-        console.log('🔄 Cargando datos de ejemplo debido a error...');
-        await loadSampleData();
-      }
     }
   } catch (e) {
     console.error('💥 Error crítico en fetchAssignments:', e);
     error.value = `Error de conexión: ${e.message}`
     loadingDetails.value = `Error crítico: ${e.message}`;
-    
-    // Mostrar datos de ejemplo si hay error crítico
-    if (assignments.value.length === 0) {
-      await loadSampleData();
-    }
   } finally {
     loading.value = false
     console.log('🏁 ========== CARGA DE TAREAS COMPLETADA ==========');
@@ -725,6 +775,51 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.btn-diagnostic {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  padding: .5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 0.5rem;
+  transition: background .2s;
+}
+
+.btn-diagnostic:hover {
+  background: #4f46e5;
+}
+
+.btn-diagnostic:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.diagnostics-result {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.diagnostics-result h3 {
+  margin: 0 0 1rem 0;
+  color: #374151;
+}
+
+.diagnostics-result pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
 .wrap { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; animation: slideIn .7s; }
 .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
 .btn-back { background: #fff; color: #2a4dd0; border: 2px solid #2a4dd0; padding: .5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
