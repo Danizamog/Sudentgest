@@ -51,3 +51,10 @@ services:
       - "5012:5000"
     env_file:
       - ./back/Director/.env
+
+  grades:
+    build: ./back/Grades
+    ports:
+      - "5013:5000"
+    env_file:
+      - ./back/Grades/.env

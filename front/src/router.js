@@ -22,6 +22,8 @@ import AttendanceHistory from './views/AttendanceHistory.vue'
 import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
 import DirectorPanel from './views/DirectorPanel.vue'
+import TeacherGrades from './views/TeacherGrades.vue'
+import StudentGrades from './views/StudentGrades.vue'
 
 const routes = [
   { path: '/', redirect: '/signin', meta: { hideNavbar: true } },
@@ -45,6 +47,8 @@ const routes = [
   { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true } },
   { path: '/attendance/history', component: AttendanceHistory, meta: { requiresAuth: true } },
   { path: '/excuses/history', component: ExcusesHistory, meta: { requiresAuth: true } },
+  { path: '/teacher-grades', component: TeacherGrades, meta: { requiresAuth: true, requiresTeacher: true } },
+  { path: '/student-grades', component: StudentGrades, meta: { requiresAuth: true } },
   { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
 
@@ -112,6 +116,11 @@ router.beforeEach(async (to, from, next) => {
       if (to.meta.requiresDirector) {
         const userRole = await getUserRole()
         if (userRole !== 'Director') return next('/home')
+      }
+
+      if (to.meta.requiresTeacher) {
+        const userRole = await getUserRole()
+        if (userRole !== 'Profesor') return next('/home')
       }
 
       next()

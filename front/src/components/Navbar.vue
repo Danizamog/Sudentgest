@@ -67,6 +67,20 @@
             <router-link v-if="['Profesor', 'Director'].includes(userProfile?.rol)" to="/excuses/history" class="nav-link">
               {{ userProfile?.rol === 'Director' ? 'Historial Excusas' : 'Mis Excusas' }}
             </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Profesor'" 
+              to="/teacher-grades" 
+              class="nav-link"
+            >
+              Calificaciones
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Estudiante'" 
+              to="/student-grades" 
+              class="nav-link"
+            >
+              Mis Notas
+            </router-link>
           </div>
 
           <div class="nav-actions">
@@ -116,6 +130,24 @@
                 @click="toggleMobileMenu"
               >
                 Gestión Usuarios
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Profesor'" 
+                to="/teacher-grades" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Calificaciones
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Estudiante'" 
+                to="/student-grades" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Mis Notas
               </router-link>
               
               <button @click="handleLogout" class="logout-btn mobile-logout" :disabled="loading">
