@@ -21,28 +21,48 @@ import ExcusesManagement from './views/ExcusesManagement.vue'
 import AttendanceHistory from './views/AttendanceHistory.vue'
 import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
+import DirectorPanel from './views/DirectorPanel.vue'
+import TeacherGrades from './views/TeacherGrades.vue'
+import StudentGrades from './views/StudentGrades.vue'
+import TeacherReports from './views/TeacherReports.vue'
+import DirectorReports from './views/DirectorReports.vue'
+import TeacherDashboard from './views/TeacherDashboard.vue'
+import DirectorDashboard from './views/DirectorDashboard.vue'
+import StudentDashboard from './views/StudentDashboard.vue'
 
 const routes = [
-  { path: '/', redirect: '/signin', meta: { hideNavbar: true } },
-  { path: '/signin', component: SignIn, meta: { hideNavbar: true } },
-  { path: '/auth/callback', component: AuthCallback, meta: { hideNavbar: true } },
-  { path: '/home', component: Home, meta: { requiresAuth: true } },
-  { path: '/foro', component: Foro, meta: { requiresAuth: true } },
-  { path: '/features', component: Features, meta: { requiresAuth: true } },
-  { path: '/pricing', component: Pricing, meta: { requiresAuth: true } },
-  { path: '/info', component: Info, meta: { requiresAuth: true } },
-  { path: '/contact', component: Contact, meta: { requiresAuth: true } },
-  { path: '/nosotros', component: Nosotros, meta: { requiresAuth: true } },
-  { path: '/base', component: Base, meta: { requiresAuth: true, requiresDirector: true } },
-  { path: '/courses', component: Courses, meta: { requiresAuth: true } },
-  { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true } },
-  { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true } },
-  { path: '/courses/:id/assignments', name: 'assignments', component: AssignmentsView, meta: { requiresAuth: true } },
-  { path: '/attendance', component: Attendance, meta: { requiresAuth: true } },
-  { path: '/excuses', component: Excuses, meta: { requiresAuth: true } },
-  { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true } },
-  { path: '/attendance/history', component: AttendanceHistory, meta: { requiresAuth: true } },
-  { path: '/excuses/history', component: ExcusesHistory, meta: { requiresAuth: true } },
+  { path: '/', redirect: '/landing' },
+  { path: '/signin', component: SignIn, meta: { hideNavbar: true, layout: 'none' } },
+  { path: '/auth/callback', component: AuthCallback, meta: { hideNavbar: true, layout: 'none' } },
+  
+  // Landing Pages (Public - use different path to avoid confusion)
+  { path: '/landing', component: Home, meta: { layout: 'landing' } },
+  { path: '/features', component: Features, meta: { layout: 'landing' } },
+  { path: '/pricing', component: Pricing, meta: { layout: 'landing' } },
+  { path: '/contact', component: Contact, meta: { layout: 'landing' } },
+  { path: '/nosotros', component: Nosotros, meta: { layout: 'landing' } },
+  { path: '/info', component: Info, meta: { layout: 'landing' } },
+  
+  // App Pages (Authenticated - use AppLayout with sidebar)
+  { path: '/home', component: StudentDashboard, meta: { requiresAuth: true, layout: 'app' } }, // Student home
+  { path: '/foro', component: Foro, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/courses', component: Courses, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/courses/:id/assignments', name: 'assignments', component: AssignmentsView, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/attendance', component: Attendance, meta: { requiresAuth: true, requiresTeacherOrDirector: true, layout: 'app' } },
+  { path: '/excuses', component: Excuses, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true, layout: 'app' } },
+  { path: '/attendance/history', component: AttendanceHistory, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/excuses/history', component: ExcusesHistory, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/teacher-grades', component: TeacherGrades, meta: { requiresAuth: true, requiresTeacher: true, layout: 'app' } },
+  { path: '/student-grades', component: StudentGrades, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/teacher-reports', component: TeacherReports, meta: { requiresAuth: true, requiresTeacher: true, layout: 'app' } },
+  { path: '/director-reports', component: DirectorReports, meta: { requiresAuth: true, requiresDirector: true, layout: 'app' } },
+  { path: '/teacher-dashboard', component: TeacherDashboard, meta: { requiresAuth: true, requiresTeacher: true, layout: 'app' } },
+  { path: '/director-dashboard', component: DirectorDashboard, meta: { requiresAuth: true, requiresDirector: true, layout: 'app' } },
+  { path: '/base', component: Base, meta: { requiresAuth: true, requiresDirector: true, layout: 'app' } },
+  { path: '/director', component: DirectorPanel, meta: { requiresAuth: true, requiresDirector: true, layout: 'app' } },
   { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
 
@@ -107,14 +127,33 @@ router.beforeEach(async (to, from, next) => {
         return next('/signin')
       }
 
+      const userRole = await getUserRole()
+
       if (to.meta.requiresDirector) {
-        const userRole = await getUserRole()
-        if (userRole !== 'Director') return next('/home')
+        if (userRole !== 'Director') return next('/teacher-dashboard')
+      }
+
+      if (to.meta.requiresTeacher) {
+        if (userRole !== 'Profesor') return next('/home')
+      }
+
+      if (to.meta.requiresTeacherOrDirector) {
+        if (userRole !== 'Profesor' && userRole !== 'Director') {
+          return next('/home') // Redirect students to their dashboard
+        }
       }
 
       next()
     } else if ((to.path === '/signin' || to.path === '/') && isAuthenticated) {
-      next('/home')
+      // Redirect authenticated users to their role-based dashboard
+      const userRole = await getUserRole()
+      if (userRole === 'Director') {
+        next('/director-dashboard')
+      } else if (userRole === 'Profesor') {
+        next('/teacher-dashboard')
+      } else {
+        next('/home') // Student dashboard
+      }
     } else {
       next()
     }

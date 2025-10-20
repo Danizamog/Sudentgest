@@ -29,7 +29,7 @@ services:
   forunm:
     build: ./back/Forum
     ports:
-      - "5010:80"
+      - "5010:8080"
 
 
   attendance:
@@ -48,6 +48,6 @@ services:
   contact:
     build: ./back/Contact
     ports:
-      - "5013:5000"
+      - "5019:5000"
     env_file:
       - ./back/Contact/.env

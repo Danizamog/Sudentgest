@@ -31,6 +31,11 @@
               class="nav-link admin-link"
             >Roles</router-link>
             <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/director" 
+              class="nav-link admin-link"
+            >Gestión Usuarios</router-link>
+            <router-link 
               v-if="['Profesor'].includes(userProfile?.rol)" 
               to="/attendance" 
               class="nav-link"
@@ -61,6 +66,48 @@
             </router-link>
             <router-link v-if="['Profesor', 'Director'].includes(userProfile?.rol)" to="/excuses/history" class="nav-link">
               {{ userProfile?.rol === 'Director' ? 'Historial Excusas' : 'Mis Excusas' }}
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Profesor'" 
+              to="/teacher-grades" 
+              class="nav-link"
+            >
+              Calificaciones
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Estudiante'" 
+              to="/student-grades" 
+              class="nav-link"
+            >
+              Mis Notas
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Profesor'" 
+              to="/teacher-dashboard" 
+              class="nav-link"
+            >
+              📊 Dashboard
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Profesor'" 
+              to="/teacher-reports" 
+              class="nav-link"
+            >
+              Reportes
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/director-dashboard" 
+              class="nav-link admin-link"
+            >
+              📊 Dashboard
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/director-reports" 
+              class="nav-link admin-link"
+            >
+              Reportes
             </router-link>
           </div>
 
@@ -101,7 +148,70 @@
                 class="nav-link admin-link"
                 @click="toggleMobileMenu"
               >
-                Base de Datos
+                Roles
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Director'" 
+                to="/director" 
+                class="nav-link admin-link"
+                @click="toggleMobileMenu"
+              >
+                Gestión Usuarios
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Profesor'" 
+                to="/teacher-grades" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Calificaciones
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Estudiante'" 
+                to="/student-grades" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Mis Notas
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Profesor'" 
+                to="/teacher-dashboard" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                📊 Dashboard
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Profesor'" 
+                to="/teacher-reports" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Reportes
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Director'" 
+                to="/director-dashboard" 
+                class="nav-link admin-link"
+                @click="toggleMobileMenu"
+              >
+                📊 Dashboard
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Director'" 
+                to="/director-reports" 
+                class="nav-link admin-link"
+                @click="toggleMobileMenu"
+              >
+                Reportes
               </router-link>
               
               <button @click="handleLogout" class="logout-btn mobile-logout" :disabled="loading">

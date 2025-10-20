@@ -35,6 +35,13 @@
             <span v-if="curso.horario"><strong>Horario:</strong> {{ curso.horario }}</span>
           </div>
           <div v-if="canManage" class="card-actions">
+            <button @click="openAssignTeacherModal(curso)" class="btn-small btn-primary" title="Asignar Profesor">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              Profesor
+            </button>
             <button @click="viewCourseDetail(curso.id)" class="btn-small btn-info">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -286,6 +293,57 @@
           </div>
         </div>
       </div>
+
+      <!-- Modal de asignación de profesor -->
+      <div v-if="showAssignTeacherModal" class="modal" @click.self="closeAssignTeacherModal">
+        <div class="modal-content">
+          <h2 style="display: inline-flex; align-items: center; gap: .5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Asignar Profesor a Curso
+          </h2>
+          
+          <div v-if="assignTeacherError" class="error-box" style="margin-bottom: 1rem;">
+            {{ assignTeacherError }}
+          </div>
+          
+          <div v-if="assignTeacherSuccess" class="success-box" style="margin-bottom: 1rem;">
+            {{ assignTeacherSuccess }}
+          </div>
+
+          <div class="course-info-box" style="background: var(--color-bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--color-primary);">{{ selectedCourseForTeacher?.nombre }}</h3>
+            <p style="margin: 0; color: var(--color-text-secondary); font-size: 0.9rem;">{{ selectedCourseForTeacher?.codigo }}</p>
+          </div>
+
+          <form @submit.prevent="assignTeacher" class="form">
+            <div class="form-group">
+              <label>Seleccionar Profesor</label>
+              <select v-model="selectedTeacherId" required>
+                <option value="">-- Selecciona un profesor --</option>
+                <option v-for="profesor in profesores" :key="profesor.id" :value="profesor.id">
+                  {{ profesor.nombre }} {{ profesor.apellido }} - {{ profesor.email }}
+                </option>
+              </select>
+              <div class="select-hint" v-if="profesores.length === 0">
+                No hay profesores disponibles
+              </div>
+              <div class="select-hint" v-else>
+                {{ profesores.length }} profesor(es) disponible(s)
+              </div>
+            </div>
+            
+            <div class="modal-actions">
+              <button type="button" @click="closeAssignTeacherModal" class="btn-outline">Cancelar</button>
+              <button type="submit" class="btn-primary" :disabled="assigning || !selectedTeacherId">
+                {{ assigning ? 'Asignando...' : 'Asignar Profesor' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </section>
   </transition>
 </template>
@@ -303,13 +361,19 @@ const enrollError = ref(null)
 const showModal = ref(false)
 const showEnrollModal = ref(false)
 const showDeleteConfirm = ref(false)
+const showAssignTeacherModal = ref(false)
 const creating = ref(false)
 const enrolling = ref(false)
 const deleting = ref(false)
+const assigning = ref(false)
 const canManage = ref(false)
 const tenantDomain = ref(null)
 const editingCourse = ref(null)
 const courseToDelete = ref(null)
+const selectedCourseForTeacher = ref(null)
+const selectedTeacherId = ref('')
+const assignTeacherError = ref(null)
+const assignTeacherSuccess = ref(null)
 const searchQuery = ref('')
 
 // Configuración de horario
@@ -364,10 +428,15 @@ const horarioPreviewGlobal = computed(() => {
   return validSlots.map(slot => {
     const diasText = slot.dias.join('-')
     return `${diasText} ${slot.horaInicio}-${slot.horaFin}`
-  }).join(' | ')
+  }).join(', ')
 })
 
-// Computed property para filtrar solo estudiantes
+// Computed property para filtrar profesores
+const profesores = computed(() => {
+  return usuarios.value.filter(u => u.rol === 'Profesor')
+})
+
+// Computed property para estudiantes (usado en modal de inscripción)
 const filteredEstudiantes = computed(() => {
   let estudiantes = usuarios.value.filter(u => u.rol === 'Estudiante')
   
@@ -537,17 +606,19 @@ async function fetchUsuarios() {
 
 async function checkPermissions() {
   try {
-    const token = localStorage.getItem('token')
-    if (!token) return
-
-    const response = await fetch(`${AUTH_API}/api/auth/user-profile`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    // Use cookie-based authentication (same as AppLayout)
+    const response = await fetch('/auth/user-profile', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     })
 
     if (response.ok) {
       const profile = await response.json()
+      console.log('User profile:', profile) // Debug log
       canManage.value = ['Director', 'admin'].includes(profile.rol)
       tenantDomain.value = getTenantFromEmail(profile.email)
+      
+      console.log('canManage:', canManage.value, 'rol:', profile.rol) // Debug log
       
       if (canManage.value) {
         await fetchUsuarios()
@@ -725,6 +796,67 @@ async function deleteCourse() {
   }
 }
 
+function openAssignTeacherModal(curso) {
+  selectedCourseForTeacher.value = curso
+  selectedTeacherId.value = ''
+  assignTeacherError.value = null
+  assignTeacherSuccess.value = null
+  showAssignTeacherModal.value = true
+}
+
+function closeAssignTeacherModal() {
+  showAssignTeacherModal.value = false
+  selectedCourseForTeacher.value = null
+  selectedTeacherId.value = ''
+  assignTeacherError.value = null
+  assignTeacherSuccess.value = null
+}
+
+async function assignTeacher() {
+  try {
+    assigning.value = true
+    assignTeacherError.value = null
+    assignTeacherSuccess.value = null
+    
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      assignTeacherError.value = 'No estás autenticado'
+      return
+    }
+
+    const response = await fetch(
+      `${COURSES_API}/api/courses/${selectedCourseForTeacher.value.id}/assign-teacher?profesor_id=${selectedTeacherId.value}`, 
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (response.ok) {
+      assignTeacherSuccess.value = '✅ Profesor asignado exitosamente'
+      
+      // Refresh courses to show updated teacher
+      await fetchCourses()
+      
+      // Close modal after 1.5 seconds
+      setTimeout(() => {
+        closeAssignTeacherModal()
+      }, 1500)
+    } else {
+      const data = await response.json()
+      assignTeacherError.value = data.detail || 'Error al asignar profesor'
+    }
+  } catch (e) {
+    console.error('Error assigning teacher:', e)
+    assignTeacherError.value = 'Error de conexión al asignar profesor'
+  } finally {
+    assigning.value = false
+  }
+}
+
 async function enrollUser() {
   try {
     enrolling.value = true
@@ -873,6 +1005,36 @@ onMounted(async () => {
 
 .card.clickable { cursor: default; }
 
+/* Teacher Assignment Styles */
+.success-box {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #10b981;
+  font-weight: 500;
+}
+
+.error-box {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #ef4444;
+  font-weight: 500;
+}
+
+.course-info-box h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.course-info-box p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
@@ -883,7 +1045,7 @@ onMounted(async () => {
 @media (max-width: 600px) {
   .header { flex-direction: column; align-items: stretch; }
   .header-actions { flex-direction: column; }
-  .card-actions { justify-content: center; }
+  .card-actions { justify-content: center; flex-wrap: wrap; }
   .dias-grid { grid-template-columns: repeat(4, 1fr); }
   .horas-grid { grid-template-columns: 1fr; }
 }
