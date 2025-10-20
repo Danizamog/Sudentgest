@@ -81,6 +81,20 @@
             >
               Mis Notas
             </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Profesor'" 
+              to="/teacher-reports" 
+              class="nav-link"
+            >
+              Reportes
+            </router-link>
+            <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/director-reports" 
+              class="nav-link admin-link"
+            >
+              Reportes
+            </router-link>
           </div>
 
           <div class="nav-actions">
@@ -148,6 +162,24 @@
                 @click="toggleMobileMenu"
               >
                 Mis Notas
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Profesor'" 
+                to="/teacher-reports" 
+                class="nav-link"
+                @click="toggleMobileMenu"
+              >
+                Reportes
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Director'" 
+                to="/director-reports" 
+                class="nav-link admin-link"
+                @click="toggleMobileMenu"
+              >
+                Reportes
               </router-link>
               
               <button @click="handleLogout" class="logout-btn mobile-logout" :disabled="loading">

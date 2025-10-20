@@ -24,6 +24,8 @@ import AssignmentsView from './views/AssignmentsView.vue'
 import DirectorPanel from './views/DirectorPanel.vue'
 import TeacherGrades from './views/TeacherGrades.vue'
 import StudentGrades from './views/StudentGrades.vue'
+import TeacherReports from './views/TeacherReports.vue'
+import DirectorReports from './views/DirectorReports.vue'
 
 const routes = [
   { path: '/', redirect: '/signin', meta: { hideNavbar: true } },
@@ -49,6 +51,8 @@ const routes = [
   { path: '/excuses/history', component: ExcusesHistory, meta: { requiresAuth: true } },
   { path: '/teacher-grades', component: TeacherGrades, meta: { requiresAuth: true, requiresTeacher: true } },
   { path: '/student-grades', component: StudentGrades, meta: { requiresAuth: true } },
+  { path: '/teacher-reports', component: TeacherReports, meta: { requiresAuth: true, requiresTeacher: true } },
+  { path: '/director-reports', component: DirectorReports, meta: { requiresAuth: true, requiresDirector: true } },
   { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
 
