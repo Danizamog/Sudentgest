@@ -1,7 +1,7 @@
 import httpx
 import os
 from typing import Optional, Dict
-from fastapi import HTTPException, Header
+from fastapi import HTTPException, Header, Request
 import jwt
 
 # Variables de entorno
@@ -42,12 +42,22 @@ async def get_tenant_info(domain: str) -> Optional[Dict]:
         print(f"❌ Error obteniendo tenant info: {e}")
     return None
 
-async def get_current_user(authorization: str = Header(None)) -> Dict:
-    """Extraer y validar usuario del token JWT"""
-    if not authorization or not authorization.startswith("Bearer "):
+# 🔹 ACTUALIZADO: Soporte para cookies HttpOnly
+async def get_current_user(request: Request, authorization: str = Header(None)) -> Dict:
+    """Extraer y validar usuario del token JWT (soporta Authorization header y cookies)"""
+    token = None
+    
+    # 🔹 PRIORIDAD 1: Buscar en Authorization header
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    
+    # 🔹 PRIORIDAD 2: Buscar en cookies HttpOnly
+    if not token:
+        token = request.cookies.get("session_token")
+    
+    if not token:
         raise HTTPException(status_code=401, detail="Token no proporcionado")
     
-    token = authorization.split(" ")[1]
     try:
         payload = jwt.decode(
             token,

@@ -21,6 +21,7 @@ import ExcusesManagement from './views/ExcusesManagement.vue'
 import AttendanceHistory from './views/AttendanceHistory.vue'
 import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
+import MyExcuses from './views/MyExcuses.vue'
 
 const routes = [
   { path: '/', redirect: '/signin', meta: { hideNavbar: true } },
@@ -43,6 +44,11 @@ const routes = [
   { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true } },
   { path: '/attendance/history', component: AttendanceHistory, meta: { requiresAuth: true } },
   { path: '/excuses/history', component: ExcusesHistory, meta: { requiresAuth: true } },
+  {
+    path: '/excuses/my',
+    component: MyExcuses,
+    meta: { requiresAuth: true }
+  },
   { path: '/:pathMatch(.*)*', redirect: '/signin' }
 ]
 

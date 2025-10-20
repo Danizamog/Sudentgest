@@ -1,24 +1,24 @@
 <template>
   <transition name="fade">
     <section class="wrap">
-      <h1>Historial de Excusas</h1>
-      <p class="subtitle">Todas las excusas del sistema</p>
+      <h1>Mis Excusas</h1>
+      <p class="subtitle">Excusas que has creado</p>
 
       <div v-if="loading" class="loading">
         <div class="spinner"></div>
-        Cargando historial...
+        Cargando tus excusas...
       </div>
 
       <div v-else-if="error" class="error-box">{{ error }}</div>
 
       <div v-else-if="excuses.length === 0" class="empty">
-        📋 No hay excusas registradas
+        📋 No has creado ninguna excusa aún
       </div>
 
       <div v-else class="table-container">
         <!-- Filtros -->
         <div class="filters">
-          <select v-model="filterStatus" @change="filterExcuses" class="filter-select">
+          <select v-model="filterStatus" class="filter-select">
             <option value="">Todos los estados</option>
             <option value="pendiente">Pendientes</option>
             <option value="aprobada">Aprobadas</option>
@@ -36,22 +36,32 @@
                 <th>Estudiante</th>
                 <th>Motivo</th>
                 <th>Estado</th>
-                <th>Creado por</th>
                 <th>Fecha Creación</th>
+                <th v-if="userRole === 'Profesor'">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="excuse in filteredExcuses" :key="excuse.id">
+                <tr v-for="excuse in filteredExcuses" :key="excuse.id">
                 <td class="date-cell">{{ formatDate(excuse.fecha_inicio) }} | {{ formatDate(excuse.fecha_fin) }}</td>
                 <td class="student-cell">{{ excuse.estudiante_nombre || 'Cargando...' }}</td>
                 <td class="motivo-cell">{{ excuse.motivo }}</td>
                 <td>
-                  <span :class="['status-badge', excuse.estado]">
+                    <span :class="['status-badge', excuse.estado]">
                     {{ getStatusLabel(excuse.estado) }}
                   </span>
                 </td>
-                <td class="creator-cell">{{ excuse.creador_nombre || 'Cargando...' }}</td>
                 <td class="created-cell">{{ formatDateTime(excuse.created_at) }}</td>
+                <td v-if="userRole === 'Profesor'" class="actions-cell">
+                  <button 
+                    v-if="excuse.estado === 'pendiente'" 
+                    @click="deleteExcuse(excuse.id)"
+                    class="btn-delete"
+                    title="Eliminar excusa"
+                  >
+                    🗑️
+                  </button>
+                  <span v-else class="no-action">-</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -69,6 +79,7 @@ const excuses = ref([])
 const loading = ref(true)
 const error = ref(null)
 const filterStatus = ref('')
+const userRole = ref('')
 
 const getAttendanceAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5004' : window.location.origin
 const getAuthAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5002' : window.location.origin
@@ -85,7 +96,7 @@ function getTenantFromEmail(email) {
   return null
 }
 
-async function loadExcuses() {
+async function loadMyExcuses() {
   try {
     loading.value = true
     error.value = null
@@ -96,22 +107,7 @@ async function loadExcuses() {
       return
     }
 
-    // Obtener excusas
-    const response = await fetch(`${getAttendanceAPI()}/api/attendance/excuses/all`, {
-      headers: { 'Authorization': `Bearer ${session.access_token}` },
-      credentials: 'include'
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      error.value = errorData.detail || 'Error al cargar historial'
-      return
-    }
-
-    const data = await response.json()
-    let excusasData = data.excusas || []
-
-    // Obtener tenant para buscar usuarios
+    // Obtener perfil del usuario
     const profileResponse = await fetch(`${getAuthAPI()}/api/auth/user-profile`, {
       headers: { 'Authorization': `Bearer ${session.access_token}` },
       credentials: 'include'
@@ -123,8 +119,25 @@ async function loadExcuses() {
     }
 
     const profile = await profileResponse.json()
+    userRole.value = profile.rol
+
+    // Obtener excusas creadas por el usuario actual
+    const response = await fetch(`${getAttendanceAPI()}/api/attendance/excuses/my`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      error.value = errorData.detail || 'Error al cargar excusas'
+      return
+    }
+
+    const data = await response.json()
+    let excusasData = data.excusas || []
+
+    // Obtener tenant para buscar nombres de estudiantes
     const tenant = getTenantFromEmail(profile.email)
-    
     if (!tenant) {
       error.value = 'Tenant no identificado'
       return
@@ -143,44 +156,60 @@ async function loadExcuses() {
     const usersData = await usersResponse.json()
     const usuarios = usersData.usuarios || []
 
-    // Crear mapa de usuarios por ID para búsqueda rápida
+    // Crear mapa de usuarios por ID
     const usuariosMap = {}
     usuarios.forEach(u => {
       usuariosMap[u.id] = `${u.nombre} ${u.apellido}`
     })
 
-    // Enriquecer excusas con nombres de estudiante y creador
+    // Enriquecer excusas con nombres de estudiantes
     excusasData = excusasData.map(excuse => ({
       ...excuse,
-      estudiante_nombre: usuariosMap[excuse.estudiante_id] || 'Desconocido',
-      creador_nombre: usuariosMap[excuse.creado_por] || 'Desconocido'
+      estudiante_nombre: usuariosMap[excuse.estudiante_id] || 'Desconocido'
     }))
 
     excuses.value = excusasData
 
   } catch (e) {
-    console.error('Error loading excuses:', e)
+    console.error('Error loading my excuses:', e)
     error.value = 'Error de conexión'
   } finally {
     loading.value = false
   }
 }
 
-function filterExcuses() {
-  // El filtrado se hace automáticamente por el computed
+async function deleteExcuse(excuseId) {
+  if (!confirm('¿Estás seguro de eliminar esta excusa?')) return
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const response = await fetch(`${getAttendanceAPI()}/api/attendance/excuses/${excuseId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      alert('✅ Excusa eliminada exitosamente')
+      await loadMyExcuses()
+    } else {
+      const errorData = await response.json()
+      alert(`❌ Error: ${errorData.detail || 'No se pudo eliminar la excusa'}`)
+    }
+  } catch (e) {
+    console.error('Error deleting excuse:', e)
+    alert('❌ Error al eliminar excusa')
+  }
 }
 
 function formatDate(dateString) {
   if (!dateString) return '-'
   
   try {
-    // Manejar formato YYYY-MM-DD
     const date = new Date(dateString)
-    
-    // Verificar si la fecha es válida
-    if (isNaN(date.getTime())) {
-      return dateString // Devolver el string original si no es válida
-    }
+    if (isNaN(date.getTime())) return dateString
     
     return date.toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -188,7 +217,6 @@ function formatDate(dateString) {
       day: 'numeric'
     })
   } catch (e) {
-    console.error('Error formateando fecha:', e)
     return dateString
   }
 }
@@ -198,10 +226,7 @@ function formatDateTime(dateString) {
   
   try {
     const date = new Date(dateString)
-    
-    if (isNaN(date.getTime())) {
-      return dateString
-    }
+    if (isNaN(date.getTime())) return dateString
     
     return date.toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -211,14 +236,13 @@ function formatDateTime(dateString) {
       minute: '2-digit'
     })
   } catch (e) {
-    console.error('Error formateando fecha/hora:', e)
     return dateString
   }
 }
 
 function getStatusLabel(estado) {
   const labels = {
-    pendiente: '⏳ Pendiente',
+    pendiente: 'Pendiente',
     aprobada: '✓ Aprobada',
     rechazada: '✗ Rechazada'
   }
@@ -226,7 +250,7 @@ function getStatusLabel(estado) {
 }
 
 onMounted(() => {
-  loadExcuses()
+  loadMyExcuses()
 })
 </script>
 
@@ -256,13 +280,17 @@ onMounted(() => {
 .date-cell { font-weight: 600; color: #1e293b; white-space: nowrap; }
 .student-cell { font-weight: 600; color: #2a4dd0; }
 .motivo-cell { max-width: 300px; color: #475569; }
-.creator-cell { color: #64748b; font-size: .9rem; }
 .created-cell { color: #94a3b8; font-size: .85rem; white-space: nowrap; }
 
 .status-badge { padding: .35rem .6rem; border-radius: 6px; font-size: .85rem; font-weight: 600; white-space: nowrap; }
 .status-badge.pendiente { background: #fef3c7; color: #92400e; }
 .status-badge.aprobada { background: #d1fae5; color: #065f46; }
 .status-badge.rechazada { background: #fee2e2; color: #991b1b; }
+
+.actions-cell { text-align: center; }
+.btn-delete { background: #ef4444; color: #fff; border: none; padding: .4rem .6rem; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: all .2s; }
+.btn-delete:hover { background: #dc2626; transform: scale(1.1); }
+.no-action { color: #cbd5e1; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity .4s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

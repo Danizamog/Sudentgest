@@ -111,9 +111,10 @@ const loadingStudents = ref(false)
 const saving = ref(false)
 const error = ref(null)
 
-const ATTENDANCE_API = import.meta.env.VITE_ATTENDANCE_API || 'http://localhost:5004'
-const COURSES_API = import.meta.env.VITE_COURSES_API || 'http://localhost:5008'
-const AUTH_API = 'http://localhost:5002'
+// 🔹 URLs dinámicas
+const getCoursesAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5008' : window.location.origin
+const getAttendanceAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5004' : window.location.origin
+const getAuthAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5002' : window.location.origin
 
 function getTenantFromEmail(email) {
   if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
@@ -133,8 +134,9 @@ async function fetchMyCourses() {
       return
     }
 
-    const response = await fetch(`${COURSES_API}/api/courses/my-courses`, {
-      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    const response = await fetch(`${getCoursesAPI()}/api/courses/my-courses`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
     })
 
     if (response.ok) {
@@ -168,10 +170,12 @@ async function loadStudentsByCourse() {
     const tenant = getTenantFromEmail(session.user.email)
     if (!tenant) return
 
-    // 🔹 USAR NUEVO ENDPOINT: /students (solo retorna estudiantes)
     const studentsResponse = await fetch(
-      `${COURSES_API}/api/courses/${selectedCursoId.value}/students`,
-      { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+      `${getCoursesAPI()}/api/courses/${selectedCursoId.value}/students`,
+      { 
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        credentials: 'include'
+      }
     )
 
     if (!studentsResponse.ok) {
@@ -188,14 +192,14 @@ async function loadStudentsByCourse() {
       return
     }
 
-    // Obtener datos completos de usuarios del tenant
-    const usersResponse = await fetch(`${AUTH_API}/api/usuarios/${tenant}`)
+    const usersResponse = await fetch(`${getAuthAPI()}/api/usuarios/${tenant}`, {
+      credentials: 'include'
+    })
     
     if (usersResponse.ok) {
       const usersData = await usersResponse.json()
       const allUsers = usersData.usuarios || []
 
-      // Filtrar estudiantes inscritos
       students.value = allUsers.filter(u => 
         enrolledIds.includes(u.id) && 
         (u.rol?.toLowerCase() === 'estudiante')
@@ -203,7 +207,6 @@ async function loadStudentsByCourse() {
         `${a.apellido} ${a.nombre}`.localeCompare(`${b.apellido} ${b.nombre}`)
       )
 
-      // Inicializar registros
       students.value.forEach(student => {
         attendanceRecords[student.id] = {
           estado: 'presente',
@@ -232,12 +235,13 @@ async function saveAllAttendance() {
     if (!session) return
 
     const promises = students.value.map(student => {
-      return fetch(`${ATTENDANCE_API}/api/attendance/register`, {
+      return fetch(`${getAttendanceAPI()}/api/attendance/register`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           estudiante_id: student.id,
           curso_id: parseInt(selectedCursoId.value),
@@ -254,7 +258,6 @@ async function saveAllAttendance() {
 
     if (failed === 0) {
       alert(`✅ ${successful} asistencias guardadas exitosamente`)
-      // Limpiar observaciones
       students.value.forEach(student => {
         attendanceRecords[student.id].observaciones = ''
       })

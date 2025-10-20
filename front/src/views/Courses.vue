@@ -312,6 +312,10 @@ const editingCourse = ref(null)
 const courseToDelete = ref(null)
 const searchQuery = ref('')
 
+const getCoursesAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5008' : window.location.origin
+const getAuthAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5002' : window.location.origin
+
+
 // Configuración de horario
 const diasSemana = [
   { label: 'Lun', value: 'Lun' },
@@ -499,10 +503,9 @@ async function fetchCourses() {
       return
     }
 
-    const response = await fetch(`${COURSES_API}/api/courses`, {
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`
-      }
+    const response = await fetch(`${getCoursesAPI()}/api/courses`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
     })
 
     if (response.ok) {
@@ -524,7 +527,9 @@ async function fetchUsuarios() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session || !tenantDomain.value) return
 
-    const response = await fetch(`${AUTH_API}/api/usuarios/${tenantDomain.value}`)
+    const response = await fetch(`${getAuthAPI()}/api/usuarios/${tenantDomain.value}`, {
+      credentials: 'include'
+    })
     
     if (response.ok) {
       const data = await response.json()
@@ -537,24 +542,38 @@ async function fetchUsuarios() {
 
 async function checkPermissions() {
   try {
-    const token = localStorage.getItem('token')
-    if (!token) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      console.log('❌ No hay sesión de Supabase')
+      return
+    }
 
-    const response = await fetch(`${AUTH_API}/api/auth/user-profile`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const response = await fetch(`${getAuthAPI()}/api/auth/user-profile`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
     })
 
     if (response.ok) {
       const profile = await response.json()
-      canManage.value = ['Director', 'admin'].includes(profile.rol)
+      console.log('=== DEBUG COURSES ===')
+      console.log('👤 Perfil obtenido:', profile)
+      console.log('🎭 Rol:', profile.rol)
+      console.log('🔍 Tipo:', typeof profile.rol)
+      
+      canManage.value = ['Director', 'admin', "director"].includes(profile.rol)
+      console.log('✅ canManage:', canManage.value)
+      console.log('===================')
+      
       tenantDomain.value = getTenantFromEmail(profile.email)
       
       if (canManage.value) {
         await fetchUsuarios()
       }
+    } else {
+      console.error('❌ Error obteniendo perfil:', response.status)
     }
   } catch (e) {
-    console.error('Error checking permissions:', e)
+    console.error('❌ Error checking permissions:', e)
   }
 }
 

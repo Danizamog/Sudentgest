@@ -1,15 +1,17 @@
 import httpx
 import os
 from typing import Optional, Dict
-from fastapi import HTTPException, Header
+from fastapi import HTTPException, Header, Request
 import jwt
 
+# Variables de entorno
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", SUPABASE_ANON_KEY)
 
 def get_tenant_from_email(email: str) -> Optional[str]:
+    """Obtener dominio del tenant según el email"""
     if not email:
         return None
     email = email.lower()
@@ -22,6 +24,7 @@ def get_tenant_from_email(email: str) -> Optional[str]:
     return None
 
 async def get_tenant_info(domain: str) -> Optional[Dict]:
+    """Obtener información del tenant desde Supabase"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {
@@ -39,11 +42,22 @@ async def get_tenant_info(domain: str) -> Optional[Dict]:
         print(f"❌ Error obteniendo tenant info: {e}")
     return None
 
-async def get_current_user(authorization: str = Header(None)) -> Dict:
-    if not authorization or not authorization.startswith("Bearer "):
+# 🔹 ACTUALIZADO: Soporte para cookies HttpOnly
+async def get_current_user(request: Request, authorization: str = Header(None)) -> Dict:
+    """Extraer y validar usuario del token JWT (soporta Authorization header y cookies)"""
+    token = None
+    
+    # 🔹 PRIORIDAD 1: Buscar en Authorization header
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    
+    # 🔹 PRIORIDAD 2: Buscar en cookies HttpOnly
+    if not token:
+        token = request.cookies.get("session_token")
+    
+    if not token:
         raise HTTPException(status_code=401, detail="Token no proporcionado")
     
-    token = authorization.split(" ")[1]
     try:
         payload = jwt.decode(
             token,
@@ -63,6 +77,7 @@ async def get_current_user(authorization: str = Header(None)) -> Dict:
         raise HTTPException(status_code=401, detail="Token inválido")
 
 async def get_user_by_email(email: str, schema: str) -> Optional[Dict]:
+    """Obtener datos del usuario por email"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {

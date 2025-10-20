@@ -46,7 +46,7 @@
               Gestionar Excusas
             </router-link>
             <router-link 
-              v-if="['Profesor', 'Padre', 'Admin'].includes(userProfile?.rol)" 
+              v-if="['Profesor', 'Padre', 'Admin', 'Estudiante'].includes(userProfile?.rol)" 
               to="/excuses" 
               class="nav-link"
             >
@@ -59,8 +59,11 @@
             >
               Historial Asist.
             </router-link>
-            <router-link v-if="['Profesor', 'Director'].includes(userProfile?.rol)" to="/excuses/history" class="nav-link">
-              {{ userProfile?.rol === 'Director' ? 'Historial Excusas' : 'Mis Excusas' }}
+            <router-link v-if="['Director'].includes(userProfile?.rol)" to="/excuses/history" class="nav-link">
+            Historial Excusas
+            </router-link>
+            <router-link v-if="['Profesor', 'Estudiante'].includes(userProfile?.rol)" to="/excuses/my" class="nav-link">
+              Mis Excusas
             </router-link>
           </div>
 

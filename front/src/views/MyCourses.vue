@@ -103,9 +103,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { supabase } from '../supabase'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const cursos = ref([])
 const loading = ref(true)
 const error = ref(null)
@@ -121,8 +123,10 @@ const attendanceModal = reactive({
   cursoCodigo: ''
 })
 
-const COURSES_API = import.meta.env.VITE_COURSES_API || 'http://localhost:5008'
-const ATTENDANCE_API = import.meta.env.VITE_ATTENDANCE_API || 'http://localhost:5004'
+// 🔹 URLs dinámicas
+const getCoursesAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5008' : window.location.origin
+const getAttendanceAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5004' : window.location.origin
+const getAuthAPI = () => window.location.hostname === 'localhost' ? 'http://localhost:5002' : window.location.origin
 
 async function fetchMyCourses() {
   try {
@@ -135,10 +139,9 @@ async function fetchMyCourses() {
       return
     }
 
-    const response = await fetch(`${COURSES_API}/api/courses/my-courses`, {
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`
-      }
+    const response = await fetch(`${getCoursesAPI()}/api/courses/my-courses`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
     })
 
     if (response.ok) {
@@ -170,9 +173,9 @@ async function viewAttendance(curso) {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
-    // Obtener el ID del usuario actual
-    const profileResponse = await fetch('http://localhost:5002/api/auth/user-profile', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    const profileResponse = await fetch(`${getAuthAPI()}/api/auth/user-profile`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      credentials: 'include'
     })
 
     if (!profileResponse.ok) {
@@ -182,14 +185,16 @@ async function viewAttendance(curso) {
 
     const profile = await profileResponse.json()
     
-    // Obtener tenant y buscar el usuario_id
     const tenant = getTenantFromEmail(profile.email)
     if (!tenant) {
       attendanceModal.error = 'Tenant no identificado'
       return
     }
 
-    const usersResponse = await fetch(`http://localhost:5002/api/usuarios/${tenant}`)
+    const usersResponse = await fetch(`${getAuthAPI()}/api/usuarios/${tenant}`, {
+      credentials: 'include'
+    })
+    
     if (!usersResponse.ok) {
       attendanceModal.error = 'Error al obtener usuarios'
       return
@@ -203,11 +208,11 @@ async function viewAttendance(curso) {
       return
     }
 
-    // Obtener asistencias del estudiante en este curso específico
     const response = await fetch(
-      `${ATTENDANCE_API}/api/attendance/student/${currentUser.id}?curso_id=${curso.id}`,
+      `${getAttendanceAPI()}/api/attendance/student/${currentUser.id}?curso_id=${curso.id}`,
       {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        credentials: 'include'
       }
     )
 
@@ -223,6 +228,10 @@ async function viewAttendance(curso) {
   } finally {
     attendanceModal.loading = false
   }
+}
+
+function goToTareas(curso) {
+  router.push(`/courses/${curso.id}/assignments`)
 }
 
 function getTenantFromEmail(email) {

@@ -16,8 +16,8 @@
           </div>
           
           <div class="info">
-            <p><strong>Estudiante ID:</strong> {{ excuse.estudiante_id }}</p>
-            <p><strong>Curso ID:</strong> {{ excuse.curso_id }}</p>
+            <p><strong>Estudiante:</strong> {{ excuse.estudiante_nombre }}</p>
+            <p><strong>Curso:</strong> {{ excuse.curso_nombre }}</p>
             <p><strong>Periodo:</strong> {{ excuse.fecha_inicio }} al {{ excuse.fecha_fin }}</p>
             <p><strong>Motivo:</strong> {{ excuse.motivo }}</p>
             <p v-if="excuse.documento_url"><strong>Documento:</strong> <a :href="excuse.documento_url" target="_blank">Ver documento</a></p>
@@ -55,6 +55,15 @@ const error = ref(null)
 const rejectModal = ref({ show: false, excuseId: null, comentario: '' })
 
 const ATTENDANCE_API = import.meta.env.VITE_ATTENDANCE_API || 'http://localhost:5004'
+const AUTH_API = 'http://localhost:5002'
+const COURSES_API = 'http://localhost:5008'
+
+function getTenantFromEmail(email) {
+  if (email.endsWith('@ucb.edu.bo')) return 'ucb.edu.bo'
+  if (email.endsWith('@upb.edu.bo')) return 'upb.edu.bo'
+  if (email.endsWith('@gmail.com')) return 'gmail.com'
+  return null
+}
 
 async function fetchPendingExcuses() {
   try {
@@ -70,7 +79,45 @@ async function fetchPendingExcuses() {
 
     if (response.ok) {
       const data = await response.json()
-      excuses.value = data.excusas || []
+      let excusasArray = data.excusas || []
+
+      // 🔹 Obtener tenant y usuarios
+      const tenant = getTenantFromEmail(session.user.email)
+      if (tenant) {
+        const usersResponse = await fetch(`${AUTH_API}/api/usuarios/${tenant}`)
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json()
+          const usuarios = usersData.usuarios || []
+          
+          const usuariosMap = {}
+          usuarios.forEach(u => {
+            usuariosMap[u.id] = `${u.nombre} ${u.apellido}`
+          })
+
+          // 🔹 Obtener cursos
+          const coursesResponse = await fetch(`${COURSES_API}/api/courses`, {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          })
+          
+          let cursosMap = {}
+          if (coursesResponse.ok) {
+            const coursesData = await coursesResponse.json()
+            const cursos = coursesData.cursos || []
+            cursos.forEach(c => {
+              cursosMap[c.id] = `${c.codigo} - ${c.nombre}`
+            })
+          }
+
+          // 🔹 Enriquecer excusas con nombres
+          excusasArray = excusasArray.map(excuse => ({
+            ...excuse,
+            estudiante_nombre: usuariosMap[excuse.estudiante_id] || `Estudiante ID: ${excuse.estudiante_id}`,
+            curso_nombre: cursosMap[excuse.curso_id] || `Curso ID: ${excuse.curso_id}`
+          }))
+        }
+      }
+
+      excuses.value = excusasArray
     } else {
       error.value = 'Error al cargar excusas pendientes'
     }
