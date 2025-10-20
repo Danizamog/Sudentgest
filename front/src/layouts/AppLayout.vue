@@ -40,6 +40,15 @@
             <span v-if="!sidebarCollapsed" class="nav-text">Cursos</span>
           </router-link>
           <router-link 
+            v-if="userRole === 'Estudiante' || userRole === 'Profesor'"
+            to="/my-assignments" 
+            class="nav-item"
+            :title="sidebarCollapsed ? 'Tareas' : ''"
+          >
+            <span class="nav-icon">📋</span>
+            <span v-if="!sidebarCollapsed" class="nav-text">{{ userRole === 'Profesor' ? 'Mis Tareas' : 'Tareas' }}</span>
+          </router-link>
+          <router-link 
             v-if="userRole === 'Estudiante'"
             to="/student-grades" 
             class="nav-item"
@@ -109,6 +118,14 @@
           >
             <span class="nav-icon">💬</span>
             <span v-if="!sidebarCollapsed" class="nav-text">Foro</span>
+          </router-link>
+          <router-link 
+            to="/support" 
+            class="nav-item"
+            :title="sidebarCollapsed ? 'Contacto' : ''"
+          >
+            <span class="nav-icon">📧</span>
+            <span v-if="!sidebarCollapsed" class="nav-text">Contacto</span>
           </router-link>
         </div>
 

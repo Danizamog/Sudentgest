@@ -31,6 +31,26 @@ services:
     ports:
       - "5010:8080"
 
+  director:
+    build: ./back/Director
+    ports:
+      - "5012:5000"
+    env_file:
+      - ./back/Director/.env
+
+  grades:
+    build: ./back/Grades
+    ports:
+      - "5013:5000"
+    env_file:
+      - ./back/Grades/.env
+
+  reports:
+    build: ./back/Reports
+    ports:
+      - "5014:5000"
+    env_file:
+      - ./back/Reports/.env
 
   attendance:
     build: ./back/Attendance

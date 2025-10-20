@@ -94,7 +94,7 @@ const form = reactive({
 })
 
 // URL del servicio de contacto
-const CONTACT_API_URL = 'http://localhost:5013/api/contact'
+const CONTACT_API_URL = 'http://localhost:5019/api/contact'
 
 // Obtener perfil del usuario
 async function getUserProfile() {

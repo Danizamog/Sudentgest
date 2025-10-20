@@ -21,6 +21,7 @@ import ExcusesManagement from './views/ExcusesManagement.vue'
 import AttendanceHistory from './views/AttendanceHistory.vue'
 import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
+import MyAssignments from './views/MyAssignments.vue'
 import DirectorPanel from './views/DirectorPanel.vue'
 import TeacherGrades from './views/TeacherGrades.vue'
 import StudentGrades from './views/StudentGrades.vue'
@@ -50,6 +51,8 @@ const routes = [
   { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true, layout: 'app' } },
   { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true, layout: 'app' } },
   { path: '/courses/:id/assignments', name: 'assignments', component: AssignmentsView, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/my-assignments', component: MyAssignments, meta: { requiresAuth: true, layout: 'app' } },
+  { path: '/support', component: Contact, meta: { requiresAuth: true, layout: 'app' } },
   { path: '/attendance', component: Attendance, meta: { requiresAuth: true, requiresTeacherOrDirector: true, layout: 'app' } },
   { path: '/excuses', component: Excuses, meta: { requiresAuth: true, layout: 'app' } },
   { path: '/excuses/manage', component: ExcusesManagement, meta: { requiresAuth: true, requiresDirector: true, layout: 'app' } },
