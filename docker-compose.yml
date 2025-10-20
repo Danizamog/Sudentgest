@@ -29,7 +29,7 @@ services:
   forunm:
     build: ./back/Forum
     ports:
-      - "5010:80"
+      - "5010:8080"
 
 
   attendance:

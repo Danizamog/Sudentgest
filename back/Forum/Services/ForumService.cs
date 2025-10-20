@@ -47,6 +47,7 @@ namespace Forum.Services
                     Title = t.Title,
                     Content = t.Content,
                     Excerpt = t.Excerpt ?? (t.Content.Length > 150 ? t.Content.Substring(0, 150) + "..." : t.Content),
+                    CategoryId = t.CategoryId,
                     CategoryName = t.Category!.Name,
                     AuthorName = t.AuthorName,
                     AuthorRole = t.AuthorRole,
@@ -78,6 +79,7 @@ namespace Forum.Services
                 Title = thread.Title,
                 Content = thread.Content,
                 Excerpt = thread.Excerpt ?? (thread.Content.Length > 150 ? thread.Content.Substring(0, 150) + "..." : thread.Content),
+                CategoryId = thread.CategoryId,
                 CategoryName = thread.Category!.Name,
                 AuthorName = thread.AuthorName,
                 AuthorRole = thread.AuthorRole,
@@ -90,7 +92,7 @@ namespace Forum.Services
             };
         }
 
-        public async Task<ThreadDTO> CreateThreadAsync(CreateThreadDTO threadDto, string userId, string userName)
+        public async Task<ThreadDTO> CreateThreadAsync(CreateThreadDTO threadDto, string userId, string userName, string userRole)
         {
             var thread = new Thread
             {
@@ -100,7 +102,7 @@ namespace Forum.Services
                 CategoryId = threadDto.CategoryId,
                 UserId = userId,
                 AuthorName = userName,
-                AuthorRole = "Usuario",
+                AuthorRole = userRole,
                 Tags = threadDto.Tags,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -120,6 +122,7 @@ namespace Forum.Services
                 Title = createdThread.Title,
                 Content = createdThread.Content,
                 Excerpt = createdThread.Excerpt!,
+                CategoryId = createdThread.CategoryId,
                 CategoryName = createdThread.Category!.Name,
                 AuthorName = createdThread.AuthorName,
                 AuthorRole = createdThread.AuthorRole,
@@ -132,7 +135,27 @@ namespace Forum.Services
             };
         }
 
-        public async Task<Reply> CreateReplyAsync(CreateReplyDTO replyDto, string userId, string userName)
+        public async Task<List<ReplyDTO>> GetRepliesAsync(Guid threadId)
+        {
+            var replies = await _context.Replies
+                .Where(r => r.ThreadId == threadId)
+                .OrderBy(r => r.CreatedAt)
+                .Select(r => new ReplyDTO
+                {
+                    Id = r.Id,
+                    Content = r.Content,
+                    ThreadId = r.ThreadId,
+                    AuthorName = r.AuthorName,
+                    AuthorRole = r.AuthorRole,
+                    Likes = r.Likes,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
+
+            return replies;
+        }
+
+        public async Task<ReplyDTO> CreateReplyAsync(CreateReplyDTO replyDto, string userId, string userName, string userRole)
         {
             var reply = new Reply
             {
@@ -140,7 +163,7 @@ namespace Forum.Services
                 ThreadId = replyDto.ThreadId,
                 UserId = userId,
                 AuthorName = userName,
-                AuthorRole = "Usuario",
+                AuthorRole = userRole,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -155,7 +178,18 @@ namespace Forum.Services
             }
 
             await _context.SaveChangesAsync();
-            return reply;
+            
+            // Return DTO to avoid circular reference
+            return new ReplyDTO
+            {
+                Id = reply.Id,
+                Content = reply.Content,
+                ThreadId = reply.ThreadId,
+                AuthorName = reply.AuthorName,
+                AuthorRole = reply.AuthorRole,
+                Likes = reply.Likes,
+                CreatedAt = reply.CreatedAt
+            };
         }
 
         public async Task<List<Category>> GetCategoriesAsync()

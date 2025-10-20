@@ -6,6 +6,7 @@ namespace Forum.Models.DTOs
         public string Title { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string Excerpt { get; set; } = string.Empty;
+        public Guid CategoryId { get; set; }
         public string CategoryName { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;
         public string AuthorRole { get; set; } = string.Empty;
@@ -23,11 +24,5 @@ namespace Forum.Models.DTOs
         public string Content { get; set; } = string.Empty;
         public Guid CategoryId { get; set; }
         public List<string> Tags { get; set; } = new();
-    }
-
-    public class CreateReplyDTO
-    {
-        public string Content { get; set; } = string.Empty;
-        public Guid ThreadId { get; set; }
     }
 }

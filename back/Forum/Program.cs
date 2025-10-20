@@ -1,5 +1,6 @@
 using Forum.Services;
 using Forum.Data;
+using Forum.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +16,7 @@ builder.Services.AddDbContext<ForumContext>(options =>
 
 // Services
 builder.Services.AddScoped<IForumService, ForumService>();
+builder.Services.AddScoped<AuthHelper>();
 
 // CORS
 builder.Services.AddCors(options =>

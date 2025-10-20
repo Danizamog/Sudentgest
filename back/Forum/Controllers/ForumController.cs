@@ -2,6 +2,7 @@ using Forum.Models;
 using Microsoft.AspNetCore.Mvc;
 using Forum.Services;
 using Forum.Models.DTOs;
+using Forum.Helpers;
 
 namespace Forum.Controllers
 {
@@ -10,10 +11,31 @@ namespace Forum.Controllers
     public class ForumController : ControllerBase
     {
         private readonly IForumService _forumService;
+        private readonly AuthHelper _authHelper;
 
-        public ForumController(IForumService forumService)
+        public ForumController(IForumService forumService, AuthHelper authHelper)
         {
             _forumService = forumService;
+            _authHelper = authHelper;
+        }
+
+        private async Task<(string userId, string userName, string userRole)?> GetAuthenticatedUser()
+        {
+            var userEmail = Request.Headers["X-User-Email"].FirstOrDefault();
+            
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                return null;
+            }
+
+            var userInfo = await _authHelper.GetUserInfoFromEmail(userEmail);
+            if (userInfo == null)
+            {
+                return null;
+            }
+
+            var fullName = _authHelper.GetFullName(userInfo.Nombre, userInfo.Apellido);
+            return (userInfo.Id, fullName, userInfo.Rol);
         }
 
         [HttpGet("threads")]
@@ -50,11 +72,14 @@ namespace Forum.Controllers
         {
             try
             {
-                // En un sistema real, obtendrías el usuario del token JWT
-                var userId = "user-" + Guid.NewGuid().ToString();
-                var userName = "Usuario Demo";
+                var user = await GetAuthenticatedUser();
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "X-User-Email header is required" });
+                }
 
-                var thread = await _forumService.CreateThreadAsync(threadDto, userId, userName);
+                var (userId, userName, userRole) = user.Value;
+                var thread = await _forumService.CreateThreadAsync(threadDto, userId, userName, userRole);
                 return CreatedAtAction(nameof(GetThread), new { id = thread.Id }, thread);
             }
             catch (Exception ex)
@@ -63,16 +88,36 @@ namespace Forum.Controllers
             }
         }
 
-        [HttpPost("replies")]
-        public async Task<ActionResult<Reply>> CreateReply([FromBody] CreateReplyDTO replyDto)
+        [HttpGet("threads/{threadId}/replies")]
+        public async Task<ActionResult<List<ReplyDTO>>> GetReplies(Guid threadId)
         {
             try
             {
-                // En un sistema real, obtendrías el usuario del token JWT
-                var userId = "user-" + Guid.NewGuid().ToString();
-                var userName = "Usuario Demo";
+                var replies = await _forumService.GetRepliesAsync(threadId);
+                return Ok(replies);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving replies", error = ex.Message });
+            }
+        }
 
-                var reply = await _forumService.CreateReplyAsync(replyDto, userId, userName);
+        [HttpPost("threads/{threadId}/replies")]
+        public async Task<ActionResult<ReplyDTO>> CreateReply(Guid threadId, [FromBody] CreateReplyDTO replyDto)
+        {
+            try
+            {
+                var user = await GetAuthenticatedUser();
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "X-User-Email header is required" });
+                }
+
+                // Ensure the threadId from route matches the DTO
+                replyDto.ThreadId = threadId;
+
+                var (userId, userName, userRole) = user.Value;
+                var reply = await _forumService.CreateReplyAsync(replyDto, userId, userName, userRole);
                 return Ok(reply);
             }
             catch (Exception ex)
@@ -100,7 +145,13 @@ namespace Forum.Controllers
         {
             try
             {
-                var userId = "user-demo"; // En realidad vendría del token
+                var user = await GetAuthenticatedUser();
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "X-User-Email header is required" });
+                }
+
+                var (userId, _, _) = user.Value;
                 var result = await _forumService.DeleteThreadAsync(threadId, userId);
                 return result ? Ok() : NotFound();
             }
@@ -115,7 +166,13 @@ namespace Forum.Controllers
         {
             try
             {
-                var userId = "user-demo"; // En realidad vendría del token
+                var user = await GetAuthenticatedUser();
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "X-User-Email header is required" });
+                }
+
+                var (userId, _, _) = user.Value;
                 var result = await _forumService.DeleteReplyAsync(replyId, userId);
                 return result ? Ok() : NotFound();
             }

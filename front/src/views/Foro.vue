@@ -1,20 +1,5 @@
 <template>
   <div class="forum-container">
-    <!-- Header -->
-    <header class="forum-header">
-      <div class="header-content">
-        <div class="logo">
-          <div class="logo-icon">SG</div>
-          <h1>StudentGest</h1>
-        </div>
-        <div class="user-info" @click="toggleUserMenu">
-          <div class="avatar">MP</div>
-          <span>María Pérez (Maestra)</span>
-          <i class="fas fa-chevron-down"></i>
-        </div>
-      </div>
-    </header>
-
     <!-- Main Content -->
     <main class="forum-main">
       <div class="forum-actions">
@@ -77,10 +62,6 @@
                 <span class="stat-number">{{ totalPosts }}</span>
                 <span class="stat-label">Respuestas</span>
               </div>
-              <div class="stat-item">
-                <span class="stat-number">{{ onlineUsers }}</span>
-                <span class="stat-label">En línea</span>
-              </div>
             </div>
           </div>
         </aside>
@@ -140,12 +121,17 @@
           <!-- Thread View -->
           <div class="thread-view" v-if="selectedThread">
             <div class="thread-view-header">
-              <h2 class="thread-view-title">
-                <span v-if="selectedThread.isPinned" class="pinned-icon">
-                  <i class="fas fa-thumbtack"></i>
-                </span>
-                {{ selectedThread.title }}
-              </h2>
+              <div class="thread-header-top">
+                <h2 class="thread-view-title">
+                  <span v-if="selectedThread.isPinned" class="pinned-icon">
+                    <i class="fas fa-thumbtack"></i>
+                  </span>
+                  {{ selectedThread.title }}
+                </h2>
+                <button class="btn btn-danger" v-if="canDeleteThread(selectedThread)" @click="deleteThread(selectedThread)">
+                  <i class="fas fa-trash"></i> Eliminar Tema
+                </button>
+              </div>
               <div class="thread-view-meta">
                 <span>Por {{ selectedThread.author }}</span>
                 <span>en {{ selectedThread.category }}</span>
@@ -171,14 +157,11 @@
                   <p>{{ post.content }}</p>
                 </div>
                 <div class="post-actions">
-                  <button class="action-btn" @click="toggleLike(post)">
-                    <i class="far fa-thumbs-up"></i> Me gusta ({{ post.likes }})
-                  </button>
                   <button class="action-btn" @click="quotePost(post)">
                     <i class="far fa-comment"></i> Responder
                   </button>
-                  <button class="action-btn" v-if="post.author === 'María Pérez'">
-                    <i class="fas fa-edit"></i> Editar
+                  <button class="action-btn delete-btn" v-if="post.id !== 0 && canDelete(post)" @click="deleteReply(post)">
+                    <i class="fas fa-trash"></i> Eliminar
                   </button>
                 </div>
               </div>
@@ -217,9 +200,9 @@
           </div>
           <div class="form-group">
             <label for="thread-category">Categoría</label>
-            <select id="thread-category" class="form-control" v-model="newThread.category">
+            <select id="thread-category" class="form-control" v-model="newThread.categoryId">
               <option value="">Selecciona una categoría</option>
-              <option v-for="category in categories.filter(c => c.id !== 'all')" :key="category.id" :value="category.name">
+              <option v-for="category in categories.filter(c => c.id !== 'all')" :key="category.id" :value="category.id">
                 {{ category.name }}
               </option>
             </select>
@@ -258,6 +241,10 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
+import { supabase } from '../supabase'
+
+// API Base URL
+const FORUM_API = import.meta.env.VITE_FORUM_API || 'http://localhost:5010'
 
 export default {
   name: 'Foro',
@@ -276,142 +263,106 @@ export default {
       '--gradient': 'linear-gradient(135deg, var(--primary) 0%, #0A2A4A 100%)'
     }
     
+    // Load categories from API
+    async function loadCategories() {
+      try {
+        const response = await fetch(`${FORUM_API}/api/forum/categories`)
+        if (!response.ok) {
+          throw new Error('Error al cargar categorías')
+        }
+        const data = await response.json()
+        
+        // Add "All" category at the beginning
+        categories.value = [
+          { id: 'all', name: 'Todos los temas', icon: 'fas fa-list', threadCount: 0 },
+          ...data.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon || 'fas fa-folder',
+            threadCount: 0
+          }))
+        ]
+        
+        // Update thread counts after loading threads
+        updateCategoryCounts()
+      } catch (error) {
+        console.error('Error loading categories:', error)
+        showToast('Error al cargar las categorías', 'error')
+      }
+    }
+
+    // Update category thread counts
+    function updateCategoryCounts() {
+      // Reset all counts
+      categories.value.forEach(cat => cat.threadCount = 0)
+      
+      // Count threads per category
+      threads.value.forEach(thread => {
+        const cat = categories.value.find(c => c.id === thread.categoryId)
+        if (cat) {
+          cat.threadCount++
+        }
+        // Also increment "all" category
+        const allCat = categories.value.find(c => c.id === 'all')
+        if (allCat) {
+          allCat.threadCount++
+        }
+      })
+    }
+
+    // Load threads from API
+    async function loadThreads() {
+      try {
+        const response = await fetch(`${FORUM_API}/api/forum/threads`)
+        if (!response.ok) {
+          throw new Error('Error al cargar temas del foro')
+        }
+        const data = await response.json()
+        
+        // Map API data to local format
+        threads.value = data.map(thread => ({
+          id: thread.id,
+          title: thread.title,
+          content: thread.content,
+          excerpt: thread.content.substring(0, 100) + '...',
+          category: thread.categoryName || 'General',
+          categoryId: thread.categoryId,
+          author: thread.authorName,
+          authorRole: thread.authorRole,
+          date: new Date(thread.createdAt).toISOString().split('T')[0],
+          lastActivity: thread.lastReplyDate ? new Date(thread.lastReplyDate).toISOString().split('T')[0] : new Date(thread.createdAt).toISOString().split('T')[0],
+          tags: [],
+          replies: thread.replyCount || 0,
+          views: thread.views || 0,
+          unread: false,
+          isPinned: thread.isPinned || false,
+          posts: []
+        }))
+        
+        // Update category counts after loading threads
+        updateCategoryCounts()
+      } catch (error) {
+        console.error('Error loading threads:', error)
+        showToast('Error al cargar los temas del foro', 'error')
+      }
+    }
+
     // Aplicar variables CSS al montar el componente
-    onMounted(() => {
+    onMounted(async () => {
       Object.keys(cssVars).forEach(key => {
         document.documentElement.style.setProperty(key, cssVars[key])
       })
+      await loadCategories()
+      await loadThreads()
     })
 
-    // Datos de ejemplo actualizados
+    // Categories will be loaded from API
     const categories = ref([
-      { id: 'all', name: 'Todos los temas', icon: 'fas fa-list', threadCount: 12 },
-      { id: 'general', name: 'General', icon: 'fas fa-comments', threadCount: 5 },
-      { id: 'homework', name: 'Tareas y deberes', icon: 'fas fa-book', threadCount: 3 },
-      { id: 'events', name: 'Eventos escolares', icon: 'fas fa-calendar', threadCount: 2 },
-      { id: 'academic', name: 'Rendimiento académico', icon: 'fas fa-chart-line', threadCount: 1 },
-      { id: 'behavior', name: 'Comportamiento', icon: 'fas fa-users', threadCount: 1 }
+      { id: 'all', name: 'Todos los temas', icon: 'fas fa-list', threadCount: 0 }
     ])
 
-    const threads = ref([
-      {
-        id: '1',
-        title: 'Nuevo sistema de evaluación para el tercer trimestre',
-        content: 'Quisiera compartir con ustedes el nuevo sistema de evaluación que implementaremos este trimestre. Hemos decidido incorporar más evaluaciones prácticas para medir mejor las competencias de los estudiantes.',
-        excerpt: 'Quisiera compartir con ustedes el nuevo sistema de evaluación que implementaremos este trimestre...',
-        category: 'Rendimiento académico',
-        author: 'Ana Rodríguez',
-        authorRole: 'Maestra de Matemáticas',
-        date: '2024-09-15',
-        lastActivity: '2024-09-16',
-        tags: ['evaluación', 'trimestre', 'calificaciones'],
-        replies: 8,
-        views: 42,
-        unread: true,
-        isPinned: true,
-        posts: [
-          {
-            id: 1,
-            author: 'Ana Rodríguez',
-            role: 'Maestra de Matemáticas',
-            date: '2024-09-15',
-            content: 'Quisiera compartir con ustedes el nuevo sistema de evaluación que implementaremos este trimestre. Hemos decidido incorporar más evaluaciones prácticas para medir mejor las competencias de los estudiantes.',
-            likes: 5,
-            isLiked: false
-          },
-          {
-            id: 2,
-            author: 'Carlos Méndez',
-            role: 'Padre de familia',
-            date: '2024-09-16',
-            content: 'Me parece una excelente idea. ¿Podría explicar más sobre cómo serán estas evaluaciones prácticas?',
-            likes: 2,
-            isLiked: false
-          },
-          {
-            id: 3,
-            author: 'Laura González',
-            role: 'Maestra de Ciencias',
-            date: '2024-09-16',
-            content: 'Comparto la inquietud de Carlos. En el área de ciencias estamos considerando algo similar, me gustaría conocer más detalles.',
-            likes: 3,
-            isLiked: false
-          }
-        ]
-      },
-      {
-        id: '2',
-        title: 'Preparativos para la feria de ciencias anual',
-        content: 'Estamos organizando la feria de ciencias de este año y necesitamos la colaboración de todos. La fecha tentativa es el 15 de noviembre.',
-        excerpt: 'Estamos organizando la feria de ciencias de este año y necesitamos la colaboración de todos...',
-        category: 'Eventos escolares',
-        author: 'Miguel Torres',
-        authorRole: 'Coordinador de Ciencias',
-        date: '2024-09-10',
-        lastActivity: '2024-09-11',
-        tags: ['feria', 'ciencias', 'evento'],
-        replies: 5,
-        views: 31,
-        unread: false,
-        isPinned: true,
-        posts: [
-          {
-            id: 1,
-            author: 'Miguel Torres',
-            role: 'Coordinador de Ciencias',
-            date: '2024-09-10',
-            content: 'Estamos organizando la feria de ciencias de este año y necesitamos la colaboración de todos. La fecha tentativa es el 15 de noviembre.',
-            likes: 3,
-            isLiked: false
-          },
-          {
-            id: 2,
-            author: 'Elena Vargas',
-            role: 'Madre de familia',
-            date: '2024-09-11',
-            content: 'Mi hija está muy emocionada. ¿En qué podemos ayudar los padres?',
-            likes: 1,
-            isLiked: false
-          }
-        ]
-      },
-      {
-        id: '3',
-        title: 'Dudas sobre las tareas de matemáticas',
-        content: 'Mi hijo tiene dificultades con los problemas de matemáticas de la página 45. ¿Alguien podría explicar el método que están usando?',
-        excerpt: 'Mi hijo tiene dificultades con los problemas de matemáticas de la página 45...',
-        category: 'Tareas y deberes',
-        author: 'Roberto Sánchez',
-        authorRole: 'Padre de familia',
-        date: '2024-09-05',
-        lastActivity: '2024-09-06',
-        tags: ['matemáticas', 'tareas', 'dudas'],
-        replies: 12,
-        views: 67,
-        unread: true,
-        isPinned: false,
-        posts: [
-          {
-            id: 1,
-            author: 'Roberto Sánchez',
-            role: 'Padre de familia',
-            date: '2024-09-05',
-            content: 'Mi hijo tiene dificultades con los problemas de matemáticas de la página 45. ¿Alguien podría explicar el método que están usando?',
-            likes: 1,
-            isLiked: false
-          },
-          {
-            id: 2,
-            author: 'Ana Rodríguez',
-            role: 'Maestra de Matemáticas',
-            date: '2024-09-06',
-            content: 'Claro que sí, Roberto. Estamos usando el método de resolución por pasos. Puedo enviarle una guía por correo electrónico.',
-            likes: 4,
-            isLiked: false
-          }
-        ]
-      }
-    ])
+    // Threads will be loaded from API
+    const threads = ref([])
 
     // Estado de la aplicación
     const selectedCategory = ref('all')
@@ -429,7 +380,7 @@ export default {
 
     const newThread = ref({
       title: '',
-      category: '',
+      categoryId: '',
       content: '',
       tags: ''
     })
@@ -470,10 +421,44 @@ export default {
       selectedThread.value = null
     }
 
-    const selectThread = (thread) => {
+    const selectThread = async (thread) => {
       selectedThread.value = thread
       thread.views++
       thread.unread = false // Marcar como leído
+      
+      // Load replies for this thread
+      try {
+        const response = await fetch(`${FORUM_API}/api/forum/threads/${thread.id}/replies`)
+        if (!response.ok) {
+          throw new Error('Error al cargar respuestas')
+        }
+        const replies = await response.json()
+        
+        // Set posts with initial thread post + replies
+        thread.posts = [
+          {
+            id: 0,
+            author: thread.author,
+            role: thread.authorRole,
+            date: thread.date,
+            content: thread.content,
+            likes: 0,
+            isLiked: false
+          },
+          ...replies.map(reply => ({
+            id: reply.id,
+            author: reply.authorName,
+            role: reply.authorRole,
+            date: new Date(reply.createdAt).toISOString().split('T')[0],
+            content: reply.content,
+            likes: 0,
+            isLiked: false
+          }))
+        ]
+      } catch (error) {
+        console.error('Error loading replies:', error)
+        showToast('Error al cargar las respuestas', 'error')
+      }
     }
 
     const getInitials = (name) => {
@@ -485,6 +470,20 @@ export default {
       return new Date(dateString).toLocaleDateString('es-ES', options)
     }
 
+    // Get user email from auth session
+    async function getUserEmail() {
+      try {
+        const response = await fetch('/auth/user-profile', { credentials: 'include' })
+        if (response.ok) {
+          const profile = await response.json()
+          return profile.email
+        }
+      } catch (err) {
+        console.error('Error getting user email:', err)
+      }
+      return null
+    }
+
     // Mostrar toast
     const showToast = (message, type = 'success') => {
       toast.value = { show: true, message, type }
@@ -493,88 +492,239 @@ export default {
       }, 3000)
     }
 
-    const createThread = () => {
+    const createThread = async () => {
       if (!newThread.value.title || !newThread.value.content) {
         showToast('Por favor, complete el título y el contenido del tema', 'error')
         return
       }
       
-      if (!newThread.value.category) {
+      if (!newThread.value.categoryId) {
         showToast('Por favor, seleccione una categoría', 'error')
         return
       }
 
-      const tagsArray = newThread.value.tags ? 
-        newThread.value.tags.split(',').map(tag => tag.trim()) : []
+      try {
+        const email = await getUserEmail()
+        if (!email) {
+          showToast('Error: No se pudo obtener el correo del usuario', 'error')
+          return
+        }
 
-      const newThreadObj = {
-        id: Date.now().toString(),
-        title: newThread.value.title,
-        content: newThread.value.content,
-        excerpt: newThread.value.content.substring(0, 100) + '...',
-        category: newThread.value.category,
-        author: 'María Pérez',
-        authorRole: 'Maestra',
-        date: new Date().toISOString().split('T')[0],
-        lastActivity: new Date().toISOString().split('T')[0],
-        tags: tagsArray,
-        replies: 0,
-        views: 0,
-        unread: false,
-        isPinned: false,
-        posts: [
-          {
-            id: 1,
-            author: 'María Pérez',
-            role: 'Maestra',
-            date: new Date().toISOString().split('T')[0],
+        const tagsArray = newThread.value.tags ? 
+          newThread.value.tags.split(',').map(tag => tag.trim()) : []
+
+        const response = await fetch(`${FORUM_API}/api/forum/threads`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Email': email
+          },
+          body: JSON.stringify({
+            title: newThread.value.title,
             content: newThread.value.content,
-            likes: 0,
-            isLiked: false
-          }
-        ]
-      }
+            categoryId: newThread.value.categoryId
+          })
+        })
 
-      threads.value.unshift(newThreadObj)
-      showNewThreadModal.value = false
-      showToast('Tema creado exitosamente')
-      
-      // Reset form
-      newThread.value = {
-        title: '',
-        category: '',
-        content: '',
-        tags: ''
+        if (!response.ok) {
+          throw new Error('Error al crear el tema')
+        }
+
+        const createdThread = await response.json()
+        
+        // Find category name for display
+        const category = categories.value.find(c => c.id === newThread.value.categoryId)
+        
+        // Add to local list for immediate display
+        const newThreadObj = {
+          id: createdThread.id,
+          title: createdThread.title,
+          content: createdThread.content,
+          excerpt: createdThread.content.substring(0, 100) + '...',
+          category: category ? category.name : 'General',
+          categoryId: createdThread.categoryId,
+          author: createdThread.authorName,
+          authorRole: createdThread.authorRole,
+          date: new Date(createdThread.createdAt).toISOString().split('T')[0],
+          lastActivity: new Date(createdThread.createdAt).toISOString().split('T')[0],
+          tags: tagsArray,
+          replies: 0,
+          views: 0,
+          unread: false,
+          isPinned: false,
+          posts: [
+            {
+              id: 1,
+              author: createdThread.authorName,
+              role: createdThread.authorRole,
+              date: new Date(createdThread.createdAt).toISOString().split('T')[0],
+              content: createdThread.content,
+              likes: 0,
+              isLiked: false
+            }
+          ]
+        }
+
+        threads.value.unshift(newThreadObj)
+        showNewThreadModal.value = false
+        showToast('Tema creado exitosamente')
+        
+        // Reset form
+        newThread.value = {
+          title: '',
+          categoryId: '',
+          content: '',
+          tags: ''
+        }
+      } catch (error) {
+        console.error('Error creating thread:', error)
+        showToast('Error al crear el tema: ' + error.message, 'error')
       }
     }
 
-    const addReply = () => {
+    const addReply = async () => {
       if (!newReply.value.trim()) {
         showToast('Por favor, escriba una respuesta', 'error')
         return
       }
 
-      const newPost = {
-        id: selectedThread.value.posts.length + 1,
-        author: 'María Pérez',
-        role: 'Maestra',
-        date: new Date().toISOString().split('T')[0],
-        content: newReply.value,
-        likes: 0,
-        isLiked: false
-      }
+      try {
+        const email = await getUserEmail()
+        if (!email) {
+          showToast('Error: No se pudo obtener el correo del usuario', 'error')
+          return
+        }
 
-      selectedThread.value.posts.push(newPost)
-      selectedThread.value.replies++
-      selectedThread.value.lastActivity = new Date().toISOString().split('T')[0]
-      newReply.value = ''
-      showToast('Respuesta publicada exitosamente')
+        const response = await fetch(`${FORUM_API}/api/forum/threads/${selectedThread.value.id}/replies`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Email': email
+          },
+          body: JSON.stringify({
+            content: newReply.value
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error('Error al publicar la respuesta')
+        }
+
+        const createdReply = await response.json()
+
+        const newPost = {
+          id: createdReply.id,
+          author: createdReply.authorName,
+          role: createdReply.authorRole,
+          date: new Date(createdReply.createdAt).toISOString().split('T')[0],
+          content: createdReply.content,
+          likes: 0,
+          isLiked: false
+        }
+
+        selectedThread.value.posts.push(newPost)
+        selectedThread.value.replies++
+        selectedThread.value.lastActivity = new Date(createdReply.createdAt).toISOString().split('T')[0]
+        newReply.value = ''
+        showToast('Respuesta publicada exitosamente')
+      } catch (error) {
+        console.error('Error adding reply:', error)
+        showToast('Error al publicar la respuesta: ' + error.message, 'error')
+      }
     }
 
-    const toggleLike = (post) => {
-      post.isLiked = !post.isLiked
-      post.likes += post.isLiked ? 1 : -1
-      showToast(post.isLiked ? '¡Me gusta agregado!' : 'Me gusta eliminado')
+    // Check if current user can delete a thread
+    const canDeleteThread = (thread) => {
+      // For now, allow deletion for all authenticated users
+      // In production, you'd check if current user is the author
+      return true
+    }
+
+    // Check if current user can delete a reply
+    const canDelete = (post) => {
+      // For now, allow deletion for all authenticated users
+      // In production, you'd check if current user is the author
+      return true
+    }
+
+    // Delete a thread
+    const deleteThread = async (thread) => {
+      if (!confirm('¿Estás seguro de que quieres eliminar este tema?')) {
+        return
+      }
+
+      try {
+        const email = await getUserEmail()
+        if (!email) {
+          showToast('Error: No se pudo obtener el correo del usuario', 'error')
+          return
+        }
+
+        const response = await fetch(`${FORUM_API}/api/forum/threads/${thread.id}`, {
+          method: 'DELETE',
+          headers: {
+            'X-User-Email': email
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('Error al eliminar el tema')
+        }
+
+        // Remove from local list
+        const index = threads.value.findIndex(t => t.id === thread.id)
+        if (index !== -1) {
+          threads.value.splice(index, 1)
+        }
+
+        // Update category counts
+        updateCategoryCounts()
+
+        // Go back to thread list
+        selectedThread.value = null
+        showToast('Tema eliminado exitosamente')
+      } catch (error) {
+        console.error('Error deleting thread:', error)
+        showToast('Error al eliminar el tema: ' + error.message, 'error')
+      }
+    }
+
+    // Delete a reply
+    const deleteReply = async (post) => {
+      if (!confirm('¿Estás seguro de que quieres eliminar esta respuesta?')) {
+        return
+      }
+
+      try {
+        const email = await getUserEmail()
+        if (!email) {
+          showToast('Error: No se pudo obtener el correo del usuario', 'error')
+          return
+        }
+
+        const response = await fetch(`${FORUM_API}/api/forum/replies/${post.id}`, {
+          method: 'DELETE',
+          headers: {
+            'X-User-Email': email
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('Error al eliminar la respuesta')
+        }
+
+        // Remove from local list
+        const index = selectedThread.value.posts.findIndex(p => p.id === post.id)
+        if (index !== -1) {
+          selectedThread.value.posts.splice(index, 1)
+          selectedThread.value.replies--
+        }
+
+        showToast('Respuesta eliminada exitosamente')
+      } catch (error) {
+        console.error('Error deleting reply:', error)
+        showToast('Error al eliminar la respuesta: ' + error.message, 'error')
+      }
     }
 
     const quotePost = (post) => {
@@ -617,7 +767,10 @@ export default {
       formatDate,
       createThread,
       addReply,
-      toggleLike,
+      canDeleteThread,
+      canDelete,
+      deleteThread,
+      deleteReply,
       quotePost,
       toggleUserMenu,
       debounceSearch,
@@ -652,90 +805,7 @@ export default {
 }
 
 /* Header */
-.forum-header {
-  background: var(--gradient);
-  color: white;
-  padding: 1rem 0;
-  box-shadow: 0 4px 20px var(--shadow);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-bottom: 4px solid var(--accent);
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: transform 0.3s ease;
-}
-
-.logo:hover {
-  transform: translateY(-2px);
-}
-
-.logo h1 {
-  font-size: 1.6rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.logo-icon {
-  background: var(--accent);
-  color: var(--primary);
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 1.2rem;
-  box-shadow: 0 4px 12px rgba(243, 198, 35, 0.3);
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background-color: rgba(255, 255, 255, 0.15);
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-}
-
-.user-info:hover {
-  background-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-}
-
-.avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  color: var(--primary);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  font-size: 1.1rem;
-}
+/* Removed duplicate header styles - using main Navbar component */
 
 /* Main Content */
 .forum-main {
@@ -857,6 +927,23 @@ export default {
   background: linear-gradient(135deg, var(--accent) 0%, #E5B61A 100%);
   color: var(--primary);
   font-weight: 700;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+}
+
+.btn-danger:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+}
+
+.delete-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
 }
 
 .btn-accent:hover {
@@ -1216,11 +1303,20 @@ export default {
   border-bottom: 1px solid var(--border);
 }
 
+.thread-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 .thread-view-title {
   font-size: 1.8rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   font-weight: 700;
   line-height: 1.3;
+  flex: 1;
 }
 
 .thread-view-meta {
@@ -1588,9 +1684,7 @@ footer {
     align-items: flex-start;
   }
   
-  .user-info span {
-    display: none;
-  }
+  /* Removed .user-info responsive style */
   
   .modal-footer {
     flex-direction: column;
