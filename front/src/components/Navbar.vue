@@ -31,6 +31,11 @@
               class="nav-link admin-link"
             >Roles</router-link>
             <router-link 
+              v-if="userProfile?.rol === 'Director'" 
+              to="/director" 
+              class="nav-link admin-link"
+            >Gestión Usuarios</router-link>
+            <router-link 
               v-if="['Profesor'].includes(userProfile?.rol)" 
               to="/attendance" 
               class="nav-link"
@@ -101,7 +106,16 @@
                 class="nav-link admin-link"
                 @click="toggleMobileMenu"
               >
-                Base de Datos
+                Roles
+              </router-link>
+              
+              <router-link 
+                v-if="userProfile?.rol === 'Director'" 
+                to="/director" 
+                class="nav-link admin-link"
+                @click="toggleMobileMenu"
+              >
+                Gestión Usuarios
               </router-link>
               
               <button @click="handleLogout" class="logout-btn mobile-logout" :disabled="loading">

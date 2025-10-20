@@ -21,6 +21,7 @@ import ExcusesManagement from './views/ExcusesManagement.vue'
 import AttendanceHistory from './views/AttendanceHistory.vue'
 import ExcusesHistory from './views/ExcusesHistory.vue'
 import AssignmentsView from './views/AssignmentsView.vue'
+import DirectorPanel from './views/DirectorPanel.vue'
 
 const routes = [
   { path: '/', redirect: '/signin', meta: { hideNavbar: true } },
@@ -34,6 +35,7 @@ const routes = [
   { path: '/contact', component: Contact, meta: { requiresAuth: true } },
   { path: '/nosotros', component: Nosotros, meta: { requiresAuth: true } },
   { path: '/base', component: Base, meta: { requiresAuth: true, requiresDirector: true } },
+  { path: '/director', component: DirectorPanel, meta: { requiresAuth: true, requiresDirector: true } },
   { path: '/courses', component: Courses, meta: { requiresAuth: true } },
   { path: '/my-courses', component: MyCourses, meta: { requiresAuth: true } },
   { path: '/courses/:id', component: CourseDetail, meta: { requiresAuth: true } },
